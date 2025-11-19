@@ -8,7 +8,23 @@ This package provides:
 """
 
 from shared.database.base import Base, TimestampMixin, close_db, get_db, init_db
-from shared.database.models import User, UserRole, UserStatus
+from shared.database.models import (
+    AuditLog,
+    Channel,
+    ChannelMember,
+    ChannelType,
+    File,
+    Message,
+    MessageAttachment,
+    MessageType,
+    ModerationAction,
+    ModerationActionModel,
+    Reaction,
+    Thread,
+    User,
+    UserRole,
+    UserStatus,
+)
 
 __all__ = [
     # Base classes
@@ -18,8 +34,27 @@ __all__ = [
     "init_db",
     "get_db",
     "close_db",
-    # Models
-    "User",
+    # Enums
     "UserStatus",
     "UserRole",
+    "ChannelType",
+    "MessageType",
+    "ModerationAction",
+    # User models
+    "User",
+    # Channel models
+    "Channel",
+    "ChannelMember",
+    # Message models
+    "Message",
+    "MessageAttachment",
+    # Thread models
+    "Thread",
+    # Reaction models
+    "Reaction",
+    # File models
+    "File",
+    # Admin models
+    "AuditLog",
+    "ModerationActionModel",
 ]
