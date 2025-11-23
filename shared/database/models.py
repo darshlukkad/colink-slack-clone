@@ -552,6 +552,84 @@ class ModerationActionModel(Base, TimestampMixin):
         return f"<ModerationAction(id={self.id}, action={self.action_type}, target={self.target_user_id})>"
 
 
+# ============================================================================
+# Notifications Service Models
+# ============================================================================
+
+
+class Notification(Base, TimestampMixin):
+    """User notifications model."""
+
+    __tablename__ = "notifications"
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+
+    # Target user
+    user_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+
+    # Notification details
+    type: Mapped[str] = mapped_column(String(50), nullable=False, index=True)  # mention, reaction, reply, etc.
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # Reference to related entity
+    reference_id: Mapped[Optional[UUID]] = mapped_column(PGUUID(as_uuid=True))  # message_id, channel_id, etc.
+    reference_type: Mapped[Optional[str]] = mapped_column(String(50))  # 'message', 'channel', etc.
+
+    # Who triggered this notification
+    actor_id: Mapped[Optional[UUID]] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
+    )
+
+    # Read status
+    is_read: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
+    read_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+
+    # Soft delete
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+
+    # Relationships
+    user: Mapped["User"] = relationship("User", foreign_keys=[user_id])
+    actor: Mapped[Optional["User"]] = relationship("User", foreign_keys=[actor_id])
+
+    __table_args__ = (
+        Index("ix_notifications_user_id_is_read", "user_id", "is_read"),
+        Index("ix_notifications_user_id_created_at", "user_id", "created_at"),
+        Index("ix_notifications_type", "type"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<Notification(id={self.id}, user_id={self.user_id}, type={self.type})>"
+
+
+class NotificationPreference(Base, TimestampMixin):
+    """User notification preferences."""
+
+    __tablename__ = "notification_preferences"
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+
+    # User
+    user_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True, index=True
+    )
+
+    # Preference flags
+    mentions: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    reactions: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    replies: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    direct_messages: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    channel_updates: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    # Relationships
+    user: Mapped["User"] = relationship("User")
+
+    def __repr__(self) -> str:
+        return f"<NotificationPreference(user_id={self.user_id})>"
+
+
 # Export all models for Alembic
 __all__ = [
     "Base",
@@ -578,4 +656,7 @@ __all__ = [
     # Admin models
     "AuditLog",
     "ModerationActionModel",
+    # Notification models
+    "Notification",
+    "NotificationPreference",
 ]

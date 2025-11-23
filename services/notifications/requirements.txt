@@ -1,0 +1,2 @@
+# Notifications Service specific dependencies
+# (Most dependencies come from root requirements.txt)

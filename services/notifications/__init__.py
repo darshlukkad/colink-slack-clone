@@ -1,0 +1,1 @@
+"""Colink Notifications Service."""

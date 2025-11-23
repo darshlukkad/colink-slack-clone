@@ -19,6 +19,8 @@ from shared.database.models import (
     MessageType,
     ModerationAction,
     ModerationActionModel,
+    Notification,
+    NotificationPreference,
     Reaction,
     Thread,
     User,
@@ -57,4 +59,7 @@ __all__ = [
     # Admin models
     "AuditLog",
     "ModerationActionModel",
+    # Notification models
+    "Notification",
+    "NotificationPreference",
 ]

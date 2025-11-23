@@ -334,6 +334,47 @@ services:
       - colink-network
     restart: unless-stopped
 
+  notifications:
+    build:
+      context: .
+      dockerfile: services/notifications/Dockerfile
+    container_name: colink-notifications
+    environment:
+      SERVICE_NAME: notifications
+      PORT: 8008
+      DATABASE_URL: postgresql+asyncpg://colink:colink_password@postgres:5432/colink
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      KAFKA_GROUP_ID: notifications-service
+      REDIS_URL: redis://redis:6379
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_REALM: colink
+    ports:
+      - "${NOTIFICATIONS_PORT:-8008}:8008"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+      auth-proxy:
+        condition: service_healthy
+      message:
+        condition: service_healthy
+      channel:
+        condition: service_healthy
+      reactions:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8008/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - colink-network
+    restart: unless-stopped
+
 volumes:
   postgres_data:
     driver: local
