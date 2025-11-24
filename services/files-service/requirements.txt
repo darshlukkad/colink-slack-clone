@@ -1,0 +1,25 @@
+# FastAPI and dependencies
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+
+# Database
+sqlalchemy==2.0.23
+asyncpg==0.29.0
+alembic==1.13.0
+
+# Object Storage
+minio==7.2.0
+
+# Image Processing
+Pillow>=10.0.0
+
+# Kafka
+aiokafka==0.10.0
+
+# Validation and Settings
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# Utilities
+python-dotenv==1.0.0

@@ -18,7 +18,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./infrastructure/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U colink"]
+      test: [ "CMD-SHELL", "pg_isready -U colink" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -34,7 +34,7 @@ services:
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -59,14 +59,14 @@ services:
       - --mode dev-container
       - --default-log-level=info
     ports:
-      - "18081:18081"  # Schema Registry
-      - "18082:18082"  # Pandaproxy
-      - "19092:19092"  # Kafka (external)
-      - "19644:9644"   # Admin API
+      - "18081:18081" # Schema Registry
+      - "18082:18082" # Pandaproxy
+      - "19092:19092" # Kafka (external)
+      - "19644:9644" # Admin API
     volumes:
       - redpanda_data:/var/lib/redpanda/data
     healthcheck:
-      test: ["CMD-SHELL", "rpk cluster health | grep -E 'Healthy:.+true' || exit 1"]
+      test: [ "CMD-SHELL", "rpk cluster health | grep -E 'Healthy:.+true' || exit 1" ]
       interval: 15s
       timeout: 3s
       retries: 5
@@ -82,12 +82,12 @@ services:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
     ports:
-      - "9000:9000"  # API
-      - "9001:9001"  # Console
+      - "9000:9000" # API
+      - "9001:9001" # Console
     volumes:
       - minio_data:/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
       interval: 30s
       timeout: 20s
       retries: 3
@@ -118,7 +118,19 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080;echo -e \"GET /health/ready HTTP/1.1\r\nhost: 127.0.0.1:8080\r\nConnection: close\r\n\r\n\" >&3;grep \"HTTP/1.1 200 OK\" <&3"]
+      test:
+        [
+          "CMD-SHELL",
+          "exec 3<>/dev/tcp/127.0.0.1/8080;echo -e \"GET /health/ready HTTP/1.1\r
+
+            host: 127.0.0.1:8080\r
+
+            Connection: close\r
+
+            \r
+
+            \" >&3;grep \"HTTP/1.1 200 OK\" <&3"
+        ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -147,7 +159,7 @@ services:
     volumes:
       - opensearch_data:/usr/share/opensearch/data
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      test: [ "CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -181,7 +193,7 @@ services:
       keycloak:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8001/health || exit 1"]
+      test: [ "CMD-SHELL", "curl -f http://localhost:8001/health || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -216,7 +228,7 @@ services:
       auth-proxy:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8002/health || exit 1"]
+      test: [ "CMD-SHELL", "curl -f http://localhost:8002/health || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -251,7 +263,7 @@ services:
       auth-proxy:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8003/health || exit 1"]
+      test: [ "CMD-SHELL", "curl -f http://localhost:8003/health || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -288,7 +300,7 @@ services:
       message:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8005/health || exit 1"]
+      test: [ "CMD-SHELL", "curl -f http://localhost:8005/health || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -325,7 +337,7 @@ services:
       message:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8006/health || exit 1"]
+      test: [ "CMD-SHELL", "curl -f http://localhost:8006/health || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -366,11 +378,54 @@ services:
       reactions:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8008/health || exit 1"]
+      test: [ "CMD-SHELL", "curl -f http://localhost:8008/health || exit 1" ]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
+    networks:
+      - colink-network
+    restart: unless-stopped
+
+  files:
+    build:
+      context: .
+      dockerfile: services/files-service/Dockerfile
+    container_name: colink-files
+    ports:
+      - "${FILES_PORT:-8007}:8007"
+    env_file:
+      - .env
+    environment:
+      - SERVICE_NAME=files
+      - PORT=8007
+      - DATABASE_URL=postgresql+asyncpg://colink:colink_password@postgres:5432/colink
+      - REDIS_URL=redis://redis:6379/0
+      - KAFKA_BOOTSTRAP_SERVERS=redpanda:9092
+      - AUTH_PROXY_URL=http://auth-proxy:8001
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+      - MINIO_BUCKET=colink
+      - MINIO_THUMBNAILS_BUCKET=colink-thumbnails
+      - MINIO_PUBLIC_ENDPOINT=http://localhost:9000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      auth-proxy:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:8007/health || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     networks:
       - colink-network
     restart: unless-stopped
