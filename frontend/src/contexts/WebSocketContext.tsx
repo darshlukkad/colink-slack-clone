@@ -6,6 +6,14 @@ import { useAuthStore } from '@/store/authStore';
 import { config } from '@/lib/config';
 import type { Message } from '@/types';
 
+interface ReactionData {
+  message_id: string;
+  channel_id: string;
+  user_id: string;
+  username: string;
+  emoji: string;
+}
+
 interface WebSocketContextType {
   socket: Socket | null;
   isConnected: boolean;
@@ -16,8 +24,10 @@ interface WebSocketContextType {
   onNewMessage: (callback: (message: Message) => void) => () => void;
   onMessageUpdated: (callback: (message: Message) => void) => () => void;
   onMessageDeleted: (callback: (messageId: string) => void) => () => void;
-  onTyping: (callback: (data: { userId: string; channelId: string; isTyping: boolean }) => void) => () => void;
+  onTyping: (callback: (data: { userId: string; channelId: string; isTyping: boolean; username?: string; displayName?: string }) => void) => () => void;
   onUserStatusChange: (callback: (data: { userId: string; status: string }) => void) => () => void;
+  onReactionAdded: (callback: (data: ReactionData) => void) => () => void;
+  onReactionRemoved: (callback: (data: ReactionData) => void) => () => void;
 }
 
 const WebSocketContext = createContext<WebSocketContextType | null>(null);
@@ -181,14 +191,16 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
   }, []);
 
   // Listen for typing indicators
-  const onTyping = useCallback((callback: (data: { userId: string; channelId: string; isTyping: boolean }) => void) => {
+  const onTyping = useCallback((callback: (data: { userId: string; channelId: string; isTyping: boolean; username?: string; displayName?: string }) => void) => {
     if (!socketRef.current) return () => {};
 
-    const handler = (data: { user_id: string; channel_id: string; is_typing: boolean }) => {
+    const handler = (data: { user_id: string; channel_id: string; is_typing: boolean; username?: string; display_name?: string }) => {
       callback({
         userId: data.user_id,
         channelId: data.channel_id,
         isTyping: data.is_typing,
+        username: data.username,
+        displayName: data.display_name,
       });
     };
 
@@ -217,6 +229,36 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
     };
   }, []);
 
+  // Listen for reaction added
+  const onReactionAdded = useCallback((callback: (data: ReactionData) => void) => {
+    if (!socketRef.current) return () => {};
+
+    const handler = (data: ReactionData) => {
+      callback(data);
+    };
+
+    socketRef.current.on('reaction_added', handler);
+
+    return () => {
+      socketRef.current?.off('reaction_added', handler);
+    };
+  }, []);
+
+  // Listen for reaction removed
+  const onReactionRemoved = useCallback((callback: (data: ReactionData) => void) => {
+    if (!socketRef.current) return () => {};
+
+    const handler = (data: ReactionData) => {
+      callback(data);
+    };
+
+    socketRef.current.on('reaction_removed', handler);
+
+    return () => {
+      socketRef.current?.off('reaction_removed', handler);
+    };
+  }, []);
+
   const value: WebSocketContextType = {
     socket,
     isConnected,
@@ -229,6 +271,8 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
     onMessageDeleted,
     onTyping,
     onUserStatusChange,
+    onReactionAdded,
+    onReactionRemoved,
   };
 
   return (

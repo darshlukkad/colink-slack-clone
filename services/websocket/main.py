@@ -50,6 +50,7 @@ async def lifespan(app: FastAPI):
     kafka_consumer.register_handler(
         settings.kafka_user_status_topic, handle_kafka_user_status
     )
+    kafka_consumer.register_handler(settings.kafka_reactions_topic, handle_kafka_reaction)
 
     logger.info("✅ WebSocket service started successfully")
 
@@ -153,6 +154,33 @@ async def handle_kafka_user_status(data: dict):
         logger.error(f"Error handling user status: {e}")
 
 
+async def handle_kafka_reaction(data: dict):
+    """Handle reaction events from Kafka and broadcast to channel members."""
+    try:
+        event_type = data.get("event_type")
+        reaction_data = data.get("data", {})
+        channel_id = reaction_data.get("channel_id")
+
+        if channel_id:
+            if event_type == "reaction.added":
+                logger.info(f"📤 Broadcasting reaction added to channel: {channel_id}")
+                await sio.emit(
+                    "reaction_added",
+                    reaction_data,
+                    room=f"channel:{channel_id}",
+                )
+            elif event_type == "reaction.removed":
+                logger.info(f"📤 Broadcasting reaction removed from channel: {channel_id}")
+                await sio.emit(
+                    "reaction_removed",
+                    reaction_data,
+                    room=f"channel:{channel_id}",
+                )
+
+    except Exception as e:
+        logger.error(f"Error handling reaction: {e}")
+
+
 # Socket.IO event handlers
 @sio.event
 async def connect(sid, environ, auth):
@@ -176,9 +204,15 @@ async def connect(sid, environ, auth):
                 logger.warning(f"Connection rejected for {sid}: No user_id in token")
                 return False
 
+            # Extract username and display name from token
+            username = unverified_claims.get("preferred_username")
+            display_name = unverified_claims.get("name")
+
             # Store session metadata
             session_metadata[sid] = {
                 "user_id": user_id,
+                "username": username,
+                "display_name": display_name,
                 "channels": set(),
             }
 
@@ -312,6 +346,8 @@ async def typing(sid, data):
             return {"error": "Session not found"}
 
         user_id = metadata["user_id"]
+        username = metadata.get("username")
+        display_name = metadata.get("display_name")
         room_key = f"channel:{channel_id}"
 
         # Broadcast to others in the channel
@@ -320,6 +356,8 @@ async def typing(sid, data):
             {
                 "channel_id": channel_id,
                 "user_id": user_id,
+                "username": username,
+                "display_name": display_name,
                 "is_typing": is_typing,
             },
             room=room_key,

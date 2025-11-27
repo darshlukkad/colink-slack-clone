@@ -5,14 +5,15 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Message } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 import { Smile, MessageSquare, MoreVertical } from 'lucide-react';
-import { reactionsApi } from '@/lib/api';
+import { messageApi } from '@/lib/api';
 
 interface MessageItemProps {
   message: Message;
   showAvatar: boolean;
+  onReplyClick?: (message: Message) => void;
 }
 
-export function MessageItem({ message, showAvatar }: MessageItemProps) {
+export function MessageItem({ message, showAvatar, onReplyClick }: MessageItemProps) {
   const [showActions, setShowActions] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const queryClient = useQueryClient();
@@ -22,7 +23,7 @@ export function MessageItem({ message, showAvatar }: MessageItemProps) {
 
   const addReactionMutation = useMutation({
     mutationFn: async (emoji: string) => {
-      return await reactionsApi.post(`/messages/${message.id}/reactions`, { emoji });
+      return await messageApi.post(`/messages/${message.id}/reactions`, { emoji });
     },
     onSuccess: () => {
       // Invalidate messages query to refresh reactions
@@ -40,7 +41,7 @@ export function MessageItem({ message, showAvatar }: MessageItemProps) {
 
   const removeReactionMutation = useMutation({
     mutationFn: async (emoji: string) => {
-      return await reactionsApi.delete(`/messages/${message.id}/reactions/${encodeURIComponent(emoji)}`);
+      return await messageApi.delete(`/messages/${message.id}/reactions/${encodeURIComponent(emoji)}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['messages'] });
@@ -117,9 +118,9 @@ export function MessageItem({ message, showAvatar }: MessageItemProps) {
           <div className="text-gray-900 break-words">{message.content}</div>
 
           {/* Reactions */}
-          {message.reactions && message.reactions.length > 0 && (
+          {(message.reactions && message.reactions.length > 0) || showEmojiPicker ? (
             <div className="flex flex-wrap gap-1 mt-2">
-              {message.reactions.map((reaction) => (
+              {message.reactions && message.reactions.map((reaction) => (
                 <button
                   key={reaction.emoji}
                   onClick={() => handleEmojiClick(reaction.emoji, reaction.user_reacted)}
@@ -136,33 +137,43 @@ export function MessageItem({ message, showAvatar }: MessageItemProps) {
                   </span>
                 </button>
               ))}
-              <button
-                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                className="flex items-center px-2 py-1 bg-white border border-gray-300 rounded-full hover:border-blue-500"
-              >
-                <Smile className="h-4 w-4 text-gray-500" />
-              </button>
-            </div>
-          )}
-
-          {/* Quick emoji picker */}
-          {showEmojiPicker && (
-            <div className="flex flex-wrap gap-1 mt-2 p-2 bg-white border border-gray-300 rounded shadow-lg">
-              {quickEmojis.map((emoji) => (
+              {!showEmojiPicker && (
                 <button
-                  key={emoji}
-                  onClick={() => handleReactionClick(emoji)}
-                  className="text-2xl hover:bg-gray-100 p-2 rounded transition-colors"
+                  onClick={() => setShowEmojiPicker(true)}
+                  className="flex items-center px-2 py-1 bg-white border border-gray-300 rounded-full hover:border-blue-500"
                 >
-                  {emoji}
+                  <Smile className="h-4 w-4 text-gray-500" />
                 </button>
-              ))}
+              )}
+              {/* Quick emoji picker */}
+              {showEmojiPicker && (
+                <div className="flex items-center gap-1 p-2 bg-white border border-gray-300 rounded-lg shadow-lg">
+                  {quickEmojis.map((emoji) => (
+                    <button
+                      key={emoji}
+                      onClick={() => handleReactionClick(emoji)}
+                      className="text-2xl hover:bg-gray-100 p-1 rounded transition-colors"
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setShowEmojiPicker(false)}
+                    className="ml-2 text-gray-400 hover:text-gray-600 text-sm px-2"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
             </div>
-          )}
+          ) : null}
 
           {/* Thread indicator */}
           {message.reply_count && message.reply_count > 0 && (
-            <button className="flex items-center space-x-2 mt-2 text-blue-600 hover:bg-blue-50 px-3 py-1 rounded">
+            <button
+              onClick={() => onReplyClick?.(message)}
+              className="flex items-center space-x-2 mt-2 text-blue-600 hover:bg-blue-50 px-3 py-1 rounded transition-colors"
+            >
               <MessageSquare className="h-4 w-4" />
               <span className="text-sm font-medium">
                 {message.reply_count} {message.reply_count === 1 ? 'reply' : 'replies'}
@@ -181,7 +192,11 @@ export function MessageItem({ message, showAvatar }: MessageItemProps) {
             >
               <Smile className="h-4 w-4 text-gray-600" />
             </button>
-            <button className="p-1 hover:bg-gray-100 rounded" title="Reply in thread">
+            <button
+              onClick={() => onReplyClick?.(message)}
+              className="p-1 hover:bg-gray-100 rounded"
+              title="Reply in thread"
+            >
               <MessageSquare className="h-4 w-4 text-gray-600" />
             </button>
             <button className="p-1 hover:bg-gray-100 rounded" title="More actions">

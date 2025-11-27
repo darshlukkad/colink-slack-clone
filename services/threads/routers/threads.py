@@ -215,6 +215,106 @@ async def get_thread_replies(
 
 
 @router.get(
+    "/messages/{message_id}/replies",
+    response_model=ThreadRepliesResponse,
+    dependencies=[Depends(security)],
+)
+async def get_message_replies(
+    message_id: UUID,
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get all replies to a specific message (by parent message ID).
+
+    This is useful when the thread may not exist yet, or when you only have the parent message ID.
+
+    Requires:
+    - User must be a member of the channel containing the message
+    """
+    # Get the parent message to verify it exists and get channel_id
+    stmt = select(Message).where(Message.id == message_id)
+    result = await db.execute(stmt)
+    parent_message = result.scalar_one_or_none()
+
+    if not parent_message:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Parent message not found",
+        )
+
+    # Verify channel access
+    await verify_channel_access(parent_message.channel_id, current_user.id, db)
+
+    # Find the thread for this parent message
+    stmt = select(Thread).where(Thread.root_message_id == message_id)
+    result = await db.execute(stmt)
+    thread = result.scalar_one_or_none()
+
+    # If no thread exists yet, return empty results
+    if not thread:
+        return ThreadRepliesResponse(
+            replies=[],
+            total_count=0,
+            has_more=False,
+        )
+
+    # Get total count
+    count_stmt = (
+        select(func.count())
+        .select_from(Message)
+        .where(
+            Message.thread_id == thread.id,
+            Message.deleted_at.is_(None),
+        )
+    )
+    count_result = await db.execute(count_stmt)
+    total_count = count_result.scalar() or 0
+
+    # Get replies
+    stmt = (
+        select(Message, User)
+        .join(User, Message.author_id == User.id)
+        .where(
+            Message.thread_id == thread.id,
+            Message.deleted_at.is_(None),
+        )
+        .order_by(Message.created_at)
+        .limit(limit)
+        .offset(offset)
+    )
+    result = await db.execute(stmt)
+    rows = result.all()
+
+    replies = []
+    for message, author in rows:
+        replies.append(
+            ThreadReplyResponse(
+                id=message.id,
+                content=message.content,
+                author_id=message.author_id,
+                author_username=author.username,
+                author_display_name=author.display_name,
+                thread_id=message.thread_id,
+                message_type=message.message_type,
+                is_edited=message.edited_at is not None,
+                created_at=message.created_at,
+                updated_at=message.updated_at,
+                edited_at=message.edited_at,
+            )
+        )
+
+    logger.info(f"Retrieved {len(replies)} replies for message {message_id}")
+
+    return ThreadRepliesResponse(
+        replies=replies,
+        total_count=total_count,
+        has_more=(offset + len(replies)) < total_count,
+    )
+
+
+@router.get(
     "/channels/{channel_id}/threads",
     response_model=ThreadListResponse,
     dependencies=[Depends(security)],

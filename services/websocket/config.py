@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     kafka_messages_topic: str = "messages"
     kafka_typing_topic: str = "typing"
     kafka_user_status_topic: str = "user_status"
+    kafka_reactions_topic: str = "reactions"
 
     # JWT
     keycloak_url: str = "http://localhost:8080"

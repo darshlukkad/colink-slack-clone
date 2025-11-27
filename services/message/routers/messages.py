@@ -15,6 +15,7 @@ from shared.database import (
     Channel,
     Message,
     MessageType,
+    Reaction,
     User,
     UserRole,
     get_db,
@@ -25,6 +26,61 @@ from ..services.kafka_producer import kafka_producer
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+# ============================================================================
+# Helper Functions
+# ============================================================================
+
+
+async def get_reactions_for_messages(
+    message_ids: List[UUID],
+    current_user_id: UUID,
+    db: AsyncSession
+) -> dict:
+    """Get reactions for multiple messages grouped by message_id and emoji."""
+    if not message_ids:
+        return {}
+
+    stmt = (
+        select(Reaction, User)
+        .join(User, Reaction.user_id == User.id)
+        .where(Reaction.message_id.in_(message_ids))
+    )
+    result = await db.execute(stmt)
+    reactions_with_users = result.all()
+
+    # Group by message_id and emoji
+    reactions_by_message = {}
+    for reaction, user in reactions_with_users:
+        message_id = str(reaction.message_id)
+        if message_id not in reactions_by_message:
+            reactions_by_message[message_id] = {}
+
+        emoji = reaction.emoji
+        if emoji not in reactions_by_message[message_id]:
+            reactions_by_message[message_id][emoji] = {
+                "emoji": emoji,
+                "count": 0,
+                "users": [],
+                "user_reacted": False,
+            }
+
+        reactions_by_message[message_id][emoji]["count"] += 1
+        reactions_by_message[message_id][emoji]["users"].append({
+            "id": str(user.id),
+            "username": user.username,
+        })
+
+        if reaction.user_id == current_user_id:
+            reactions_by_message[message_id][emoji]["user_reacted"] = True
+
+    # Convert to list format
+    result_dict = {}
+    for message_id, emojis in reactions_by_message.items():
+        result_dict[message_id] = list(emojis.values())
+
+    return result_dict
 
 
 # ============================================================================
@@ -45,6 +101,14 @@ class MessageUpdate(BaseModel):
     """Request model for updating a message."""
 
     content: str = Field(..., min_length=1, max_length=4000, description="Updated message content")
+
+
+class ReactionSummary(BaseModel):
+    """Summary of reactions for a message."""
+    emoji: str
+    count: int
+    users: List[dict]  # List of {id, username}
+    user_reacted: bool = False
 
 
 class MessageResponse(BaseModel):
@@ -69,6 +133,10 @@ class MessageResponse(BaseModel):
 
     # Thread information (if reply)
     parent_message_id: Optional[UUID] = None  # For API compatibility
+
+    # Reactions
+    reactions: Optional[List[ReactionSummary]] = None
+    reply_count: Optional[int] = None
 
     class Config:
         from_attributes = True
@@ -322,9 +390,16 @@ async def get_channel_messages(
     if has_more:
         messages = messages[:limit]
 
+    # Fetch reactions for all messages
+    message_ids = [message.id for message in messages]
+    reactions_by_message = await get_reactions_for_messages(message_ids, current_user.id, db)
+
     # Build response
     message_responses = []
     for message in messages:
+        message_id_str = str(message.id)
+        reactions = reactions_by_message.get(message_id_str, [])
+
         message_responses.append(
             MessageResponse(
                 id=message.id,
@@ -341,6 +416,7 @@ async def get_channel_messages(
                 deleted_at=message.deleted_at,
                 author_username=message.author.username if message.author else None,
                 author_display_name=message.author.display_name if message.author else None,
+                reactions=reactions if reactions else None,
             )
         )
 

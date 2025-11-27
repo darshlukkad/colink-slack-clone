@@ -7,9 +7,10 @@ import { MessageItem } from './MessageItem';
 interface MessageListProps {
   messages: Message[];
   isLoading: boolean;
+  onReplyClick?: (message: Message) => void;
 }
 
-export function MessageList({ messages, isLoading }: MessageListProps) {
+export function MessageList({ messages, isLoading, onReplyClick }: MessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -51,6 +52,7 @@ export function MessageList({ messages, isLoading }: MessageListProps) {
               key={message.id}
               message={message}
               showAvatar={showAvatar}
+              onReplyClick={onReplyClick}
             />
           );
         })}

@@ -28,6 +28,7 @@ class KafkaConsumerService:
                 settings.kafka_messages_topic,
                 settings.kafka_typing_topic,
                 settings.kafka_user_status_topic,
+                settings.kafka_reactions_topic,
                 bootstrap_servers=settings.kafka_bootstrap_servers,
                 group_id="websocket-service",
                 value_deserializer=lambda m: json.loads(m.decode("utf-8")),

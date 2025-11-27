@@ -30,6 +30,7 @@ export interface Message {
   author_display_name?: string;
   content: string;
   thread_id?: string;
+  parent_message_id?: string;
   message_type: 'text' | 'file' | 'system';
   is_edited: boolean;
   created_at: string;

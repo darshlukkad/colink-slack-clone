@@ -8,6 +8,7 @@ import { ChannelHeader } from '@/components/ChannelHeader';
 import { MessageList } from '@/components/MessageList';
 import { MessageInput } from '@/components/MessageInput';
 import { TypingIndicator } from '@/components/TypingIndicator';
+import { ThreadPanel } from '@/components/ThreadPanel';
 import { useWebSocket } from '@/contexts/WebSocketContext';
 import { useAuthStore } from '@/store/authStore';
 
@@ -21,8 +22,9 @@ export default function ChannelPage({ params }: ChannelPageProps) {
   const { channelId } = use(params);
   const queryClient = useQueryClient();
   const { user: currentUser } = useAuthStore();
-  const { joinChannel, leaveChannel, onNewMessage, onMessageUpdated, onMessageDeleted, onTyping } = useWebSocket();
+  const { joinChannel, leaveChannel, onNewMessage, onMessageUpdated, onMessageDeleted, onTyping, onReactionAdded, onReactionRemoved } = useWebSocket();
   const [typingUsers, setTypingUsers] = useState<Map<string, string>>(new Map()); // userId -> username
+  const [selectedThread, setSelectedThread] = useState<Message | null>(null);
 
   const { data: channel, isLoading: channelLoading } = useQuery({
     queryKey: ['channel', channelId],
@@ -83,13 +85,16 @@ export default function ChannelPage({ params }: ChannelPageProps) {
   useEffect(() => {
     const unsubscribe = onNewMessage((newMessage) => {
       if (newMessage.channel_id === channelId) {
-        queryClient.setQueryData<Message[]>(['messages', channelId], (old = []) => {
-          // Check if message already exists
-          if (old.some(msg => msg.id === newMessage.id)) {
-            return old;
-          }
-          return [...old, newMessage];
-        });
+        // Only add top-level messages (not thread replies) to main conversation
+        if (!newMessage.thread_id) {
+          queryClient.setQueryData<Message[]>(['messages', channelId], (old = []) => {
+            // Check if message already exists
+            if (old.some(msg => msg.id === newMessage.id)) {
+              return old;
+            }
+            return [...old, newMessage];
+          });
+        }
       }
     });
 
@@ -124,15 +129,16 @@ export default function ChannelPage({ params }: ChannelPageProps) {
 
   // Listen for typing indicators
   useEffect(() => {
+    const currentUserId = currentUser?.id;
+
     const unsubscribe = onTyping((data) => {
-      if (data.channelId === channelId && data.userId !== currentUser?.id) {
+      if (data.channelId === channelId && data.userId !== currentUserId) {
         setTypingUsers((prev) => {
           const next = new Map(prev);
           if (data.isTyping) {
-            // Get username from messages (if we have any from this user)
-            const userMessage = messages.find(m => m.author_id === data.userId);
-            const username = userMessage?.author?.username || data.userId;
-            next.set(data.userId, username);
+            // Use display name from the event, with fallback to username or user ID
+            const displayName = data.displayName || data.username || data.userId;
+            next.set(data.userId, displayName);
 
             // Auto-remove after 3 seconds
             setTimeout(() => {
@@ -151,7 +157,27 @@ export default function ChannelPage({ params }: ChannelPageProps) {
     });
 
     return unsubscribe;
-  }, [channelId, onTyping, currentUser?.id, messages]);
+  }, [channelId, onTyping, currentUser?.id]);
+
+  // Listen for reaction added
+  useEffect(() => {
+    const unsubscribe = onReactionAdded(() => {
+      // Simply invalidate the messages query to refetch and get updated reactions
+      queryClient.invalidateQueries({ queryKey: ['messages', channelId] });
+    });
+
+    return unsubscribe;
+  }, [channelId, onReactionAdded, queryClient]);
+
+  // Listen for reaction removed
+  useEffect(() => {
+    const unsubscribe = onReactionRemoved(() => {
+      // Simply invalidate the messages query to refetch and get updated reactions
+      queryClient.invalidateQueries({ queryKey: ['messages', channelId] });
+    });
+
+    return unsubscribe;
+  }, [channelId, onReactionRemoved, queryClient]);
 
   if (channelLoading) {
     return (
@@ -173,11 +199,23 @@ export default function ChannelPage({ params }: ChannelPageProps) {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full relative">
       <ChannelHeader channel={channel} />
-      <MessageList messages={messages} isLoading={messagesLoading} />
+      <MessageList
+        messages={messages}
+        isLoading={messagesLoading}
+        onReplyClick={setSelectedThread}
+      />
       <TypingIndicator usernames={Array.from(typingUsers.values())} />
       <MessageInput channelId={channelId} />
+
+      {/* Thread Panel */}
+      {selectedThread && (
+        <ThreadPanel
+          message={selectedThread}
+          onClose={() => setSelectedThread(null)}
+        />
+      )}
     </div>
   );
 }
