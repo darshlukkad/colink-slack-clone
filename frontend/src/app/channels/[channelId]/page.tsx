@@ -33,6 +33,9 @@ export default function ChannelPage({ params }: ChannelPageProps) {
     },
   });
 
+  const [hasMore, setHasMore] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+
   const { data: messages = [], isLoading: messagesLoading } = useQuery({
     queryKey: ['messages', channelId],
     queryFn: async () => {
@@ -41,6 +44,9 @@ export default function ChannelPage({ params }: ChannelPageProps) {
         const data = await messageApi.get<{messages: Message[], has_more: boolean, next_cursor?: string}>(`/channels/${channelId}/messages`);
         console.log(`[MESSAGES QUERY] Raw API response:`, data);
         console.log(`[MESSAGES QUERY] Number of messages:`, data.messages?.length || 0);
+
+        // Set pagination state
+        setHasMore(data.has_more || false);
 
         // Unwrap the messages array and map flat author fields to author object
         if (Array.isArray(data.messages)) {
@@ -70,6 +76,51 @@ export default function ChannelPage({ params }: ChannelPageProps) {
     staleTime: 0, // Always refetch on mount
     gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
   });
+
+  const loadMoreMessages = async () => {
+    if (!hasMore || isLoadingMore || messages.length === 0) return;
+
+    setIsLoadingMore(true);
+    try {
+      // Get the oldest message ID (first in array since we reversed)
+      const oldestMessageId = messages[0].id;
+      console.log(`[LOAD MORE] Fetching older messages before: ${oldestMessageId}`);
+
+      const data = await messageApi.get<{messages: Message[], has_more: boolean, next_cursor?: string}>(
+        `/channels/${channelId}/messages?before=${oldestMessageId}`
+      );
+
+      console.log(`[LOAD MORE] Fetched ${data.messages?.length || 0} older messages`);
+
+      // Update pagination state
+      setHasMore(data.has_more || false);
+
+      if (Array.isArray(data.messages) && data.messages.length > 0) {
+        const messagesWithAuthor = data.messages.map(msg => ({
+          ...msg,
+          author: {
+            id: msg.author_id,
+            username: msg.author_username || '',
+            display_name: msg.author_display_name,
+            email: '',
+            status: 'ACTIVE' as const,
+            role: 'MEMBER' as const,
+          }
+        }));
+
+        // Reverse and prepend to existing messages
+        const reversed = messagesWithAuthor.reverse();
+
+        queryClient.setQueryData<Message[]>(['messages', channelId], (old = []) => {
+          return [...reversed, ...old];
+        });
+      }
+    } catch (error) {
+      console.error('[LOAD MORE] Failed to load more messages:', error);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
 
   // Join/leave channel on WebSocket
   useEffect(() => {
@@ -290,6 +341,9 @@ export default function ChannelPage({ params }: ChannelPageProps) {
         messages={messages}
         isLoading={messagesLoading}
         onReplyClick={setSelectedThread}
+        hasMore={hasMore}
+        isLoadingMore={isLoadingMore}
+        onLoadMore={loadMoreMessages}
       />
       <TypingIndicator usernames={Array.from(typingUsers.values())} />
       <MessageInput channelId={channelId} />
