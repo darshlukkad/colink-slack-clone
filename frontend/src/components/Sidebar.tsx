@@ -22,10 +22,11 @@ export function Sidebar() {
     queryKey: ['channels'],
     queryFn: async () => {
       try {
-        const data = await channelApi.get<Channel[]>('/channels');
-        console.log('Channels data:', data);
-        // Ensure we always return an array
-        return Array.isArray(data) ? data : [];
+        const response = await channelApi.get<{ channels: Channel[] }>('/channels');
+        console.log('Channels response:', response);
+        // Extract channels array from response object
+        const channelsData = response?.channels || [];
+        return Array.isArray(channelsData) ? channelsData : [];
       } catch (error) {
         console.error('Failed to fetch channels:', error);
         return [];
