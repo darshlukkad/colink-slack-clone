@@ -132,6 +132,23 @@ export default function ChannelPage({ params }: ChannelPageProps) {
     }
   }, [channelId, joinChannel, leaveChannel]);
 
+  // Mark channel as read when messages are loaded
+  useEffect(() => {
+    const markAsRead = async () => {
+      if (channelId && messages.length > 0 && !messagesLoading) {
+        try {
+          await channelApi.post(`/channels/${channelId}/read`, {});
+          // Invalidate channels query to update unread counts
+          queryClient.invalidateQueries({ queryKey: ['channels'] });
+        } catch (error) {
+          console.error('Failed to mark channel as read:', error);
+        }
+      }
+    };
+
+    markAsRead();
+  }, [channelId, messages.length, messagesLoading, queryClient]);
+
   // Listen for new messages
   useEffect(() => {
     const unsubscribe = onNewMessage((newMessage) => {

@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from dependencies import get_current_user, get_pagination_params, security, verify_channel_admin
-from shared.database import Channel, ChannelMember, ChannelType, User, get_db
+from shared.database import Channel, ChannelMember, ChannelType, Message, User, get_db
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +59,7 @@ class ChannelResponse(BaseModel):
     member_count: int = 0
     is_member: bool = False
     is_admin: bool = False
+    unread_count: int = 0
 
     class Config:
         from_attributes = True
@@ -159,6 +160,41 @@ async def create_channel(
     )
 
 
+@router.post("/channels/{channel_id}/read", status_code=status.HTTP_204_NO_CONTENT)
+async def mark_channel_as_read(
+    channel_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Mark all messages in a channel as read for the current user.
+
+    Updates the last_read_at timestamp to the current time.
+    """
+    # Get user's channel membership
+    stmt = select(ChannelMember).where(
+        and_(
+            ChannelMember.channel_id == channel_id,
+            ChannelMember.user_id == current_user.id,
+        )
+    )
+    result = await db.execute(stmt)
+    membership = result.scalar_one_or_none()
+
+    if not membership:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Channel membership not found",
+        )
+
+    # Update last_read_at to current time
+    membership.last_read_at = datetime.now(timezone.utc)
+    await db.commit()
+
+    logger.info(f"Channel {channel_id} marked as read by user {current_user.id}")
+
+    return None
+
+
 @router.get("/channels/{channel_id}", response_model=ChannelResponse)
 async def get_channel(
     channel_id: UUID,
@@ -254,6 +290,32 @@ async def list_user_channels(
         )
         is_admin = user_membership.is_admin if user_membership else False
 
+        # Calculate unread count
+        unread_count = 0
+        if user_membership and user_membership.last_read_at:
+            # Count messages after last_read_at
+            unread_stmt = select(Message).where(
+                and_(
+                    Message.channel_id == channel.id,
+                    Message.created_at > user_membership.last_read_at,
+                    Message.author_id != current_user.id,  # Don't count own messages
+                    Message.deleted_at.is_(None),  # Don't count deleted messages
+                )
+            )
+            unread_result = await db.execute(unread_stmt)
+            unread_count = len(unread_result.scalars().all())
+        elif not user_membership or not user_membership.last_read_at:
+            # If never read, count all messages except own
+            unread_stmt = select(Message).where(
+                and_(
+                    Message.channel_id == channel.id,
+                    Message.author_id != current_user.id,
+                    Message.deleted_at.is_(None),
+                )
+            )
+            unread_result = await db.execute(unread_stmt)
+            unread_count = len(unread_result.scalars().all())
+
         channel_responses.append(
             ChannelResponse(
                 id=channel.id,
@@ -266,6 +328,7 @@ async def list_user_channels(
                 member_count=len(members),
                 is_member=True,
                 is_admin=is_admin,
+                unread_count=unread_count,
             )
         )
 
