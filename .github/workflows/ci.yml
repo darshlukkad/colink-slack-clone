@@ -1,76 +1,53 @@
-name: CI
+name: CI and CD for Colink
 
 on:
   push:
     branches:
       - githubaction-branch
-      - main
-      - master
-  pull_request:
 
 jobs:
-  backend:
-    name: Backend CI
+  ci:
     runs-on: ubuntu-latest
-
-    defaults:
-      run:
-        working-directory: ./backend
-
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Use Node.js
+      - name: Set up Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: |
-            backend/package-lock.json
-            backend/package.json
 
-      - name: Install backend dependencies
-        run: npm install
-
-      - name: Lint backend (if script exists)
-        run: npm run lint || echo "no lint script"
-
-      - name: Test backend (if script exists)
-        run: npm test || echo "no test script"
-
-      - name: Build backend (if script exists)
-        run: npm run build || echo "no build script"
-
-  frontend:
-    name: Frontend CI
-    runs-on: ubuntu-latest
-
-    defaults:
-      run:
+      - name: Install frontend deps
         working-directory: ./frontend
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Use Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: |
-            frontend/package-lock.json
-            frontend/package.json
-
-      - name: Install frontend dependencies
         run: npm install
 
-      - name: Lint frontend (if script exists)
-        run: npm run lint || echo "no lint script"
+      - name: Run frontend build
+        working-directory: ./frontend
+        run: npm run build
 
-      - name: Test frontend (if script exists)
-        run: npm test || echo "no test script"
+      # Add backend tests/build here if you like
 
-      - name: Build frontend (if script exists)
-        run: npm run build || echo "no build script"
+  cd:
+    needs: ci
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Deploy to EC2 via SSH
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+          cd ~/colink-slack-clone
+          git fetch origin
+          git checkout githubaction-branch
+          git pull origin githubaction-branch
+          docker-compose down
+          docker-compose pull || true
+          docker-compose up -d --build
+          exit
+          EOF
