@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Message } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
@@ -8,6 +8,7 @@ import { Smile, MessageSquare, MoreVertical, File, Download, FileText, FileImage
 import { messageApi, filesApi } from '@/lib/api';
 import { AuthService } from '@/lib/auth';
 import { useAuthStore } from '@/store/authStore';
+import { UserProfilePopup } from './UserProfilePopup';
 
 interface MessageItemProps {
   message: Message;
@@ -18,6 +19,9 @@ interface MessageItemProps {
 export function MessageItem({ message, showAvatar, onReplyClick }: MessageItemProps) {
   const [showActions, setShowActions] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showUserProfile, setShowUserProfile] = useState(false);
+  const [profilePosition, setProfilePosition] = useState({ x: 0, y: 0 });
+  const nameRef = useRef<HTMLSpanElement>(null);
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
 
@@ -92,6 +96,17 @@ export function MessageItem({ message, showAvatar, onReplyClick }: MessageItemPr
   const handleDeleteMessage = () => {
     if (confirm('Are you sure you want to delete this message?')) {
       deleteMessageMutation.mutate();
+    }
+  };
+
+  const handleNameClick = (e: React.MouseEvent) => {
+    if (nameRef.current) {
+      const rect = nameRef.current.getBoundingClientRect();
+      setProfilePosition({
+        x: rect.left + rect.width / 2,
+        y: rect.bottom,
+      });
+      setShowUserProfile(true);
     }
   };
 
@@ -200,7 +215,11 @@ export function MessageItem({ message, showAvatar, onReplyClick }: MessageItemPr
         <div className="flex-1 min-w-0">
           {showAvatar && (
             <div className="flex items-baseline space-x-2 mb-1">
-              <span className="font-semibold text-gray-900">
+              <span
+                ref={nameRef}
+                onClick={handleNameClick}
+                className="font-semibold text-gray-900 hover:underline cursor-pointer"
+              >
                 {message.author?.display_name ||
                  message.author?.username ||
                  message.author_display_name ||
@@ -350,6 +369,16 @@ export function MessageItem({ message, showAvatar, onReplyClick }: MessageItemPr
           </div>
         )}
       </div>
+
+      {/* User Profile Popup */}
+      {message.author && (
+        <UserProfilePopup
+          user={message.author}
+          isOpen={showUserProfile}
+          onClose={() => setShowUserProfile(false)}
+          position={profilePosition}
+        />
+      )}
     </div>
   );
 }

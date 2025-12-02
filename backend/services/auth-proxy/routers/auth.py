@@ -58,6 +58,7 @@ class UserInfo(BaseModel):
     display_name: Optional[str] = None
     avatar_url: Optional[str] = None
     phone_number: Optional[str] = None
+    status_text: Optional[str] = None
     role: UserRole
     status: UserStatus
 
@@ -212,6 +213,7 @@ async def get_current_user(
             display_name=user.display_name,
             avatar_url=user.avatar_url,
             phone_number=user.phone_number,
+            status_text=user.status_text,
             role=user.role,
             status=user.status,
         )
@@ -257,6 +259,7 @@ async def get_all_users(
                 display_name=user.display_name,
                 avatar_url=user.avatar_url,
                 phone_number=user.phone_number,
+                status_text=user.status_text,
                 role=user.role,
                 status=user.status,
             )
@@ -270,6 +273,58 @@ async def get_all_users(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve users",
+        )
+
+
+@router.get("/users/{user_id}", response_model=UserInfo)
+async def get_user_by_id(
+    user_id: str,
+    db: AsyncSession = Depends(get_db),
+    token: str = Depends(security),
+):
+    """Get a specific user by ID.
+
+    This endpoint requires authentication and returns a single user's complete information.
+    """
+    try:
+        # Extract token from Authorization header
+        access_token = token.credentials
+
+        # Validate token with Keycloak
+        keycloak = KeycloakService()
+        await keycloak.get_user_info(access_token)
+
+        # Get user from database by ID
+        stmt = select(User).where(User.id == user_id)
+        result = await db.execute(stmt)
+        user = result.scalar_one_or_none()
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found",
+            )
+
+        return UserInfo(
+            id=str(user.id),  # Database UUID for API calls
+            keycloak_id=user.keycloak_id,  # Keycloak ID for WebSocket
+            username=user.username,
+            email=user.email,
+            display_name=user.display_name,
+            avatar_url=user.avatar_url,
+            phone_number=user.phone_number,
+            status_text=user.status_text,
+            role=user.role,
+            status=user.status,
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get user: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve user",
         )
 
 
