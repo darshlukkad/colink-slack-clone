@@ -294,7 +294,28 @@ export function Sidebar() {
                         isActive ? 'bg-purple-700' : ''
                       }`}
                     >
-                      <OnlineStatus userId={dmUser.keycloak_id} />
+                      {/* Avatar with online status indicator */}
+                      <div className="relative flex-shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center overflow-hidden">
+                          {dmUser.avatar_url ? (
+                            <img
+                              src={dmUser.avatar_url}
+                              alt={dmUser.display_name || dmUser.username}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <span className="text-white text-xs font-medium">
+                              {dmUser.display_name?.[0]?.toUpperCase() ||
+                                dmUser.username?.[0]?.toUpperCase() ||
+                                'U'}
+                            </span>
+                          )}
+                        </div>
+                        {/* Online status dot positioned at bottom-right of avatar */}
+                        <div className="absolute -bottom-0.5 -right-0.5">
+                          <OnlineStatus userId={dmUser.keycloak_id} className="w-3 h-3 border-2 border-purple-900" />
+                        </div>
+                      </div>
                       <span className="flex-1 truncate text-left">
                         {dmUser.display_name || dmUser.username}
                       </span>

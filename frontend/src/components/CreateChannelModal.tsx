@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { channelApi, authApi } from '@/lib/api';
 import { User, Channel } from '@/types';
 import { X, Hash, Lock, Search } from 'lucide-react';
+import { useAuthStore } from '@/store/authStore';
 
 interface CreateChannelModalProps {
   isOpen: boolean;
@@ -14,6 +15,7 @@ interface CreateChannelModalProps {
 
 export function CreateChannelModal({ isOpen, onClose, onSuccess }: CreateChannelModalProps) {
   const queryClient = useQueryClient();
+  const { user: currentUser } = useAuthStore();
   const [step, setStep] = useState<'details' | 'members'>('details');
   const [channelName, setChannelName] = useState('');
   const [description, setDescription] = useState('');
@@ -31,11 +33,12 @@ export function CreateChannelModal({ isOpen, onClose, onSuccess }: CreateChannel
     enabled: isOpen && step === 'members',
   });
 
-  // Filter users based on search
+  // Filter users based on search and exclude current user
   const filteredUsers = allUsers.filter(
     (u) =>
-      u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      u.display_name?.toLowerCase().includes(searchQuery.toLowerCase())
+      u.id !== currentUser?.id && // Exclude current user
+      (u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        u.display_name?.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const createChannelMutation = useMutation({
@@ -44,13 +47,22 @@ export function CreateChannelModal({ isOpen, onClose, onSuccess }: CreateChannel
     },
     onSuccess: async (channel) => {
       // Add members to the channel if any selected
-      if (selectedUserIds.length > 0) {
+      // Filter out the current user since they're automatically added when creating the channel
+      const membersToAdd = selectedUserIds.filter(userId => userId !== currentUser?.id);
+
+      if (membersToAdd.length > 0) {
         try {
-          await Promise.all(
-            selectedUserIds.map((userId) =>
-              channelApi.post(`/channels/${channel.id}/members`, { user_id: userId })
-            )
-          );
+          // Add members sequentially to avoid race conditions
+          for (const userId of membersToAdd) {
+            try {
+              await channelApi.post(`/channels/${channel.id}/members`, { user_id: userId });
+            } catch (error: any) {
+              // Ignore 409 errors (user already a member) but log other errors
+              if (error.response?.status !== 409) {
+                console.error(`Error adding member ${userId}:`, error);
+              }
+            }
+          }
         } catch (error) {
           console.error('Error adding members:', error);
         }
@@ -136,7 +148,7 @@ export function CreateChannelModal({ isOpen, onClose, onSuccess }: CreateChannel
                     value={channelName}
                     onChange={(e) => setChannelName(e.target.value)}
                     placeholder="e.g. marketing"
-                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
                     maxLength={80}
                   />
                 </div>
@@ -156,7 +168,7 @@ export function CreateChannelModal({ isOpen, onClose, onSuccess }: CreateChannel
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="What's this channel about?"
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none text-gray-900"
                   maxLength={250}
                 />
               </div>
@@ -216,10 +228,18 @@ export function CreateChannelModal({ isOpen, onClose, onSuccess }: CreateChannel
                         isSelected ? 'bg-purple-50' : ''
                       }`}
                     >
-                      <div className="w-8 h-8 rounded bg-blue-500 flex items-center justify-center flex-shrink-0">
-                        <span className="text-white text-sm font-medium">
-                          {(user.display_name?.[0] || user.username?.[0])?.toUpperCase()}
-                        </span>
+                      <div className="w-8 h-8 rounded bg-blue-500 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                        {user.avatar_url ? (
+                          <img
+                            src={user.avatar_url}
+                            alt={user.display_name || user.username}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-white text-sm font-medium">
+                            {(user.display_name?.[0] || user.username?.[0])?.toUpperCase()}
+                          </span>
+                        )}
                       </div>
                       <div className="flex-1 text-left min-w-0">
                         <div className="text-sm font-medium text-gray-900 truncate">

@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import { channelApi } from '@/lib/api';
 import { Channel } from '@/types';
-import { Hash, Lock, Users, Star, Info } from 'lucide-react';
+import { Hash, Lock, Users, Star, Info, MoreVertical, Trash2 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 
 interface ChannelHeaderProps {
@@ -22,9 +23,12 @@ interface ChannelMember {
 
 export function ChannelHeader({ channel }: ChannelHeaderProps) {
   const { user } = useAuthStore();
+  const router = useRouter();
+  const queryClient = useQueryClient();
   const isPrivate = channel.channel_type === 'PRIVATE';
   const isDirect = channel.channel_type === 'DIRECT';
   const [showMembersTooltip, setShowMembersTooltip] = useState(false);
+  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
 
   // Fetch channel members
   const { data: membersData } = useQuery({
@@ -55,6 +59,34 @@ export function ChannelHeader({ channel }: ChannelHeaderProps) {
   };
 
   const displayName = getDisplayName();
+
+  // Check if current user is channel admin
+  const isChannelAdmin = membersData?.members.find(
+    (member) => member.user_id === user?.id
+  )?.is_admin || false;
+
+  // Delete channel mutation
+  const deleteChannelMutation = useMutation({
+    mutationFn: async () => {
+      return await channelApi.delete(`/channels/${channel.id}`);
+    },
+    onSuccess: () => {
+      // Invalidate channels query to refresh the list
+      queryClient.invalidateQueries({ queryKey: ['channels'] });
+      // Navigate to home or first available channel
+      router.push('/channels');
+    },
+    onError: (error: any) => {
+      console.error('Failed to delete channel:', error);
+      alert(error.response?.data?.detail || 'Failed to delete channel. Please try again.');
+    },
+  });
+
+  const handleDeleteChannel = () => {
+    if (confirm(`Are you sure you want to delete the channel "${channel.name}"? This action cannot be undone.`)) {
+      deleteChannelMutation.mutate();
+    }
+  };
 
   return (
     <div className="h-14 border-b border-gray-200 px-4 flex items-center justify-between bg-white">
@@ -125,6 +157,43 @@ export function ChannelHeader({ channel }: ChannelHeaderProps) {
         <button className="p-2 hover:bg-gray-100 rounded">
           <Info className="h-5 w-5 text-gray-600" />
         </button>
+
+        {/* Options menu for admins (not shown for DM channels) */}
+        {!isDirect && isChannelAdmin && (
+          <div className="relative">
+            <button
+              onClick={() => setShowOptionsMenu(!showOptionsMenu)}
+              className="p-2 hover:bg-gray-100 rounded"
+            >
+              <MoreVertical className="h-5 w-5 text-gray-600" />
+            </button>
+
+            {showOptionsMenu && (
+              <>
+                {/* Backdrop to close menu when clicking outside */}
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setShowOptionsMenu(false)}
+                />
+
+                {/* Dropdown menu */}
+                <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[180px] z-20">
+                  <button
+                    onClick={() => {
+                      setShowOptionsMenu(false);
+                      handleDeleteChannel();
+                    }}
+                    disabled={deleteChannelMutation.isPending}
+                    className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span>{deleteChannelMutation.isPending ? 'Deleting...' : 'Delete Channel'}</span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
