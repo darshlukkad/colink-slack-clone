@@ -46,3 +46,4 @@ jobs:
       - name: Build all services with Docker Compose
         run: |
           docker compose -f docker-compose.yml build
+          
