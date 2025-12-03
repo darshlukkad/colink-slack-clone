@@ -16,6 +16,7 @@ from .routers import health, notifications
 from .services.kafka_consumer import kafka_consumer
 from .services.kafka_producer import kafka_producer
 from .services.notification_manager import notification_manager
+from prometheus_fastapi_instrumentator import Instrumentator
 
 # Configure logging
 logging.basicConfig(
@@ -63,6 +64,10 @@ app = FastAPI(
     lifespan=lifespan,
     swagger_ui_parameters={"persistAuthorization": True},
 )
+
+# Expose Prometheus metrics at /metrics
+Instrumentator().instrument(app).expose(app)
+logger.info("Prometheus metrics exposed at /metrics")
 
 
 def custom_openapi():

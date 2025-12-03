@@ -24,3 +24,7 @@ python-multipart>=0.0.6
 
 # Logging and monitoring
 python-json-logger>=2.0.7
+
+
+# monitoring
+prometheus-fastapi-instrumentator
