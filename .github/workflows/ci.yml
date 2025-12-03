@@ -1,9 +1,10 @@
-name: CI - Tests and Docker build
+name: CI Test - GitHub Actions Branch
 
 on:
   push:
-    branches: [ main ]
+    branches: [ githubaction-branch ]
   pull_request:
+    branches: [ githubaction-branch ]
 
 jobs:
   test-and-build:
