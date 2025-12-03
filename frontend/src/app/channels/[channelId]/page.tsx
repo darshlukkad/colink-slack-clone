@@ -113,7 +113,7 @@ export default function ChannelPage({ params }: ChannelPageProps) {
         const reversed = messagesWithAuthor.reverse();
 
         queryClient.setQueryData<Message[]>(['messages', channelId], (old = []) => {
-          return [...reversed, ...old];
+          return [...reversed, ...old] as Message[];
         });
       }
     } catch (error) {

@@ -5,6 +5,8 @@ const nextConfig: NextConfig = {
   images: {
     domains: ['localhost'],
   },
+  // Enable standalone output for Docker
+  output: 'standalone',
 };
 
 export default nextConfig;
