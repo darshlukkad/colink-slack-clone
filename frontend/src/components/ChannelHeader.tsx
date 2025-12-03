@@ -3,10 +3,11 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { channelApi } from '@/lib/api';
-import { Channel } from '@/types';
+import { channelApi, authApi } from '@/lib/api';
+import { Channel, User } from '@/types';
 import { Hash, Lock, Users, Star, Info, MoreVertical, Trash2 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
+import { OnlineStatus } from './OnlineStatus';
 
 interface ChannelHeaderProps {
   channel: Channel;
@@ -38,6 +39,21 @@ export function ChannelHeader({ channel }: ChannelHeaderProps) {
         `/channels/${channel.id}/members`
       );
     },
+  });
+
+  // Get the other user's ID for DM channels
+  const otherUserId = isDirect && membersData?.members
+    ? membersData.members.find((member) => member.user_id !== user?.id)?.user_id
+    : null;
+
+  // Fetch complete user profile for DM channels
+  const { data: otherUserProfile } = useQuery({
+    queryKey: ['user-profile', otherUserId],
+    queryFn: async () => {
+      if (!otherUserId) return null;
+      return await authApi.get<User>(`/auth/users/${otherUserId}`);
+    },
+    enabled: isDirect && !!otherUserId,
   });
 
   // For direct messages, get the other person's name from members
@@ -92,7 +108,30 @@ export function ChannelHeader({ channel }: ChannelHeaderProps) {
     <div className="h-14 border-b border-gray-200 px-4 flex items-center justify-between bg-white">
       <div className="flex items-center space-x-2">
         {isDirect ? (
-          <div className="w-6 h-6 rounded-full bg-green-500 flex-shrink-0"></div>
+          <div className="relative flex-shrink-0">
+            <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center overflow-hidden">
+              {otherUserProfile?.avatar_url ? (
+                <img
+                  src={otherUserProfile.avatar_url}
+                  alt={otherUserProfile.display_name || otherUserProfile.username}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-white text-sm font-medium">
+                  {otherUserProfile?.display_name?.[0]?.toUpperCase() ||
+                    otherUserProfile?.username?.[0]?.toUpperCase() ||
+                    displayName?.[0]?.toUpperCase() ||
+                    'U'}
+                </span>
+              )}
+            </div>
+            {/* Online status dot positioned at bottom-right of avatar */}
+            {otherUserProfile?.keycloak_id && (
+              <div className="absolute -bottom-0.5 -right-0.5">
+                <OnlineStatus userId={otherUserProfile.keycloak_id} className="w-3 h-3 border-2 border-white" />
+              </div>
+            )}
+          </div>
         ) : isPrivate ? (
           <Lock className="h-5 w-5 text-gray-600" />
         ) : (
