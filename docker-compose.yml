@@ -175,7 +175,7 @@ services:
   auth-proxy:
     build:
       context: .
-      dockerfile: services/auth-proxy/Dockerfile
+      dockerfile: backend/services/auth-proxy/Dockerfile
     container_name: colink-auth-proxy
     ports:
       - "${AUTH_PROXY_PORT:-8001}:8001"
@@ -207,7 +207,7 @@ services:
   message:
     build:
       context: .
-      dockerfile: services/message/Dockerfile
+      dockerfile: backend/services/message/Dockerfile
     container_name: colink-message
     ports:
       - "${MESSAGE_PORT:-8002}:8002"
@@ -239,10 +239,41 @@ services:
       - colink-network
     restart: unless-stopped
 
+  websocket:
+    build:
+      context: .
+      dockerfile: backend/services/websocket/Dockerfile
+    container_name: colink-websocket
+    ports:
+      - "${WEBSOCKET_PORT:-8009}:8009"
+    env_file:
+      - .env
+    environment:
+      - SERVICE_NAME=websocket
+      - PORT=8009
+      - KAFKA_BOOTSTRAP_SERVERS=redpanda:9092
+      - KEYCLOAK_URL=http://keycloak:8080
+      - KEYCLOAK_REALM=colink
+      - CORS_ORIGINS=http://localhost:3000,http://localhost:8080
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:8009/health || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - colink-network
+    restart: unless-stopped
+
   channel:
     build:
       context: .
-      dockerfile: services/channel/Dockerfile
+      dockerfile: backend/services/channel/Dockerfile
     container_name: colink-channel
     ports:
       - "${CHANNEL_PORT:-8003}:8003"
@@ -277,7 +308,7 @@ services:
   threads:
     build:
       context: .
-      dockerfile: services/threads/Dockerfile
+      dockerfile: backend/services/threads/Dockerfile
     container_name: colink-threads
     ports:
       - "${THREADS_PORT:-8005}:8005"
@@ -314,7 +345,7 @@ services:
   reactions:
     build:
       context: .
-      dockerfile: services/reactions/Dockerfile
+      dockerfile: backend/services/reactions/Dockerfile
     container_name: colink-reactions
     ports:
       - "${REACTIONS_PORT:-8006}:8006"
@@ -351,7 +382,7 @@ services:
   notifications:
     build:
       context: .
-      dockerfile: services/notifications/Dockerfile
+      dockerfile: backend/services/notifications/Dockerfile
     container_name: colink-notifications
     environment:
       SERVICE_NAME: notifications
@@ -392,7 +423,7 @@ services:
   files:
     build:
       context: .
-      dockerfile: services/files-service/Dockerfile
+      dockerfile: backend/services/files-service/Dockerfile
     container_name: colink-files
     ports:
       - "${FILES_PORT:-8007}:8007"
@@ -428,6 +459,32 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    networks:
+      - colink-network
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: colink-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=http://localhost:8001
+      - NEXT_PUBLIC_WS_URL=http://localhost:8009
+    depends_on:
+      auth-proxy:
+        condition: service_healthy
+      websocket:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     networks:
       - colink-network
     restart: unless-stopped

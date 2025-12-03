@@ -10,6 +10,7 @@ interface AuthState {
 
   // Actions
   setAuth: (user: User, tokens: AuthTokens) => void;
+  setUser: (user: User) => void;
   clearAuth: () => void;
   initializeAuth: () => Promise<void>;
   refreshTokens: () => Promise<void>;
@@ -26,6 +27,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     AuthService.saveUser(user);
     AuthService.saveTokens(tokens);
     set({ user, tokens, isAuthenticated: true, isLoading: false });
+  },
+
+  setUser: (user) => {
+    AuthService.saveUser(user);
+    set({ user });
   },
 
   clearAuth: () => {

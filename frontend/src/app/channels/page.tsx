@@ -13,8 +13,7 @@ export default function ChannelsPage() {
   const { data: channels = [], isLoading } = useQuery({
     queryKey: ['channels'],
     queryFn: async () => {
-      const response = await channelApi.get<Channel[]>('/channels');
-      return response.data;
+      return await channelApi.get<Channel[]>('/channels');
     },
   });
 

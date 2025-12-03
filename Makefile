@@ -151,11 +151,11 @@ test: ## Run all tests
 
 test-unit: ## Run unit tests only
 	@echo "$(GREEN)🧪 Running unit tests...$(NC)"
-	pytest tests/unit
+	pytest backend/tests/unit
 
 test-integration: ## Run integration tests only
 	@echo "$(GREEN)🧪 Running integration tests...$(NC)"
-	pytest tests/integration
+	pytest backend/tests/integration
 
 test-cov: ## Run tests with coverage report
 	@echo "$(GREEN)🧪 Running tests with coverage...$(NC)"
@@ -180,7 +180,7 @@ lint-ruff: ## Run Ruff linter
 
 lint-mypy: ## Run MyPy type checker
 	@echo "$(GREEN)Running MyPy...$(NC)"
-	mypy shared/ services/
+	mypy backend/shared/ backend/services/
 
 format: ## Format code with Black and isort
 	@echo "$(GREEN)✨ Formatting code...$(NC)"
@@ -268,7 +268,7 @@ ci-test: ## Run tests in CI mode
 ci-lint: ## Run linters in CI mode
 	@echo "$(GREEN)🤖 Running CI linters...$(NC)"
 	ruff check --output-format=github .
-	mypy shared/ services/ --junit-xml=mypy-report.xml
+	mypy backend/shared/ backend/services/ --junit-xml=mypy-report.xml
 
 ci-build: ## Build Docker images for CI
 	@echo "$(GREEN)🤖 Building Docker images...$(NC)"

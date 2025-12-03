@@ -1,9 +1,11 @@
 export interface User {
-  id: string;
+  id: string;  // Database UUID - used for API calls
+  keycloak_id: string;  // Keycloak ID - used for WebSocket online status
   username: string;
   email: string;
   display_name?: string;
   avatar_url?: string;
+  phone_number?: string;
   status_text?: string;
   status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
   role: 'ADMIN' | 'MODERATOR' | 'MEMBER';
@@ -26,14 +28,19 @@ export interface Message {
   channel_id: string;
   author_id: string;
   author?: User;
+  author_username?: string;
+  author_display_name?: string;
+  author_avatar_url?: string;
   content: string;
   thread_id?: string;
+  parent_message_id?: string;
   message_type: 'text' | 'file' | 'system';
   is_edited: boolean;
   created_at: string;
   updated_at: string;
   reply_count?: number;
   reactions?: ReactionSummary[];
+  attachments?: FileUpload[];
 }
 
 export interface Thread {
