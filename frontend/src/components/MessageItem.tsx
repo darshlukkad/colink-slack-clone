@@ -14,9 +14,10 @@ interface MessageItemProps {
   message: Message;
   showAvatar: boolean;
   onReplyClick?: (message: Message) => void;
+  highlightText?: string;
 }
 
-export function MessageItem({ message, showAvatar, onReplyClick }: MessageItemProps) {
+export function MessageItem({ message, showAvatar, onReplyClick, highlightText }: MessageItemProps) {
   const [showActions, setShowActions] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showUserProfile, setShowUserProfile] = useState(false);
@@ -108,6 +109,28 @@ export function MessageItem({ message, showAvatar, onReplyClick }: MessageItemPr
       });
       setShowUserProfile(true);
     }
+  };
+
+  // Function to highlight matching text
+  const getHighlightedText = (text: string, highlight?: string) => {
+    if (!highlight || !highlight.trim()) {
+      return <span>{text}</span>;
+    }
+
+    const parts = text.split(new RegExp(`(${highlight})`, 'gi'));
+    return (
+      <span>
+        {parts.map((part, index) =>
+          part.toLowerCase() === highlight.toLowerCase() ? (
+            <mark key={index} className="bg-yellow-200 font-semibold">
+              {part}
+            </mark>
+          ) : (
+            <span key={index}>{part}</span>
+          )
+        )}
+      </span>
+    );
   };
 
   const formattedTime = formatDistanceToNow(new Date(message.created_at), {
@@ -233,7 +256,7 @@ export function MessageItem({ message, showAvatar, onReplyClick }: MessageItemPr
             </div>
           )}
 
-          <div className="text-gray-900 break-words">{message.content}</div>
+          <div className="text-gray-900 break-words">{getHighlightedText(message.content, highlightText)}</div>
 
           {/* Attachments */}
           {message.attachments && message.attachments.length > 0 && (

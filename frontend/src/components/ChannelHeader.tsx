@@ -5,12 +5,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { channelApi, authApi } from '@/lib/api';
 import { Channel, User } from '@/types';
-import { Hash, Lock, Users, Star, Info, MoreVertical, Trash2 } from 'lucide-react';
+import { Hash, Lock, Users, Star, Info, MoreVertical, Trash2, Search } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { OnlineStatus } from './OnlineStatus';
 
 interface ChannelHeaderProps {
   channel: Channel;
+  onSearch?: (query: string) => void;
 }
 
 interface ChannelMember {
@@ -22,7 +23,7 @@ interface ChannelMember {
   created_at: string;
 }
 
-export function ChannelHeader({ channel }: ChannelHeaderProps) {
+export function ChannelHeader({ channel, onSearch }: ChannelHeaderProps) {
   const { user } = useAuthStore();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -30,6 +31,8 @@ export function ChannelHeader({ channel }: ChannelHeaderProps) {
   const isDirect = channel.channel_type === 'DIRECT';
   const [showMembersTooltip, setShowMembersTooltip] = useState(false);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+  const [showSearchBox, setShowSearchBox] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Fetch channel members
   const { data: membersData } = useQuery({
@@ -104,6 +107,26 @@ export function ChannelHeader({ channel }: ChannelHeaderProps) {
     }
   };
 
+  const handleSearch = () => {
+    if (searchQuery.trim() && onSearch) {
+      onSearch(searchQuery.trim());
+    }
+  };
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery('');
+    if (onSearch) {
+      onSearch(''); // Clear the search
+    }
+    setShowSearchBox(false);
+  };
+
   return (
     <div className="h-14 border-b border-gray-200 px-4 flex items-center justify-between bg-white">
       <div className="flex items-center space-x-2">
@@ -146,6 +169,51 @@ export function ChannelHeader({ channel }: ChannelHeaderProps) {
       </div>
 
       <div className="flex items-center space-x-2">
+        {/* Search Button */}
+        <div className="relative">
+          <button
+            onClick={() => setShowSearchBox(!showSearchBox)}
+            className="p-2 hover:bg-gray-100 rounded"
+          >
+            <Search className="h-5 w-5 text-gray-600" />
+          </button>
+
+          {/* Search Box Tooltip */}
+          {showSearchBox && (
+            <>
+              {/* Backdrop to close search when clicking outside */}
+              <div
+                className="fixed inset-0 z-10"
+                onClick={handleClearSearch}
+              />
+
+              {/* Search input tooltip */}
+              <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg p-3 min-w-[300px] z-20">
+                <div className="text-xs font-semibold text-gray-700 mb-2">
+                  SEARCH IN THIS CHAT
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={handleSearchKeyDown}
+                    placeholder="Search messages..."
+                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 text-sm"
+                    autoFocus
+                  />
+                </div>
+                {searchQuery && (
+                  <div className="mt-2 text-xs text-gray-500">
+                    Press Enter to search for "{searchQuery}"
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+
         <button className="p-2 hover:bg-gray-100 rounded">
           <Star className="h-5 w-5 text-gray-600" />
         </button>
