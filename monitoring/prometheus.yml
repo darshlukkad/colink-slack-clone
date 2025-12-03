@@ -1,0 +1,16 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: 'colink-backend'
+    metrics_path: "/metrics"
+    static_configs:
+      - targets:
+          - 'auth-proxy:8001'
+          - 'message:8002'
+          - 'channel:8003'
+          - 'threads:8005'
+          - 'reactions:8006'
+          - 'files:8007'
+          - 'notifications:8008'
+          - 'websocket:8009'
