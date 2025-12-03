@@ -15,6 +15,7 @@ from .middleware import AuthMiddleware
 from .routers import health_router, threads_router
 from .services.kafka_consumer import kafka_consumer
 from .services.kafka_producer import kafka_producer
+from prometheus_fastapi_instrumentator import Instrumentator
 
 # Configure logging
 logging.basicConfig(
@@ -73,6 +74,9 @@ app = FastAPI(
     },
 )
 
+# Expose Prometheus metrics at /metrics
+Instrumentator().instrument(app).expose(app)
+logger.info("Prometheus metrics exposed at /metrics")
 
 def custom_openapi():
     """Customize OpenAPI schema to add security."""

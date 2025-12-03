@@ -13,6 +13,7 @@ from shared.database import close_db, init_db
 from .config import settings
 from .middleware import auth_middleware
 from .routers import auth, health
+from prometheus_fastapi_instrumentator import Instrumentator
 
 # Configure logging
 logging.basicConfig(
@@ -47,6 +48,10 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+# Expose Prometheus metrics at /metrics
+Instrumentator().instrument(app).expose(app)
+logger.info("Prometheus metrics exposed at /metrics")
 
 # CORS configuration
 app.add_middleware(

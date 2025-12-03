@@ -20,7 +20,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
     """
 
     # Public paths that don't require authentication
-    PUBLIC_PATHS = ["/health", "/health/ready", "/docs", "/redoc", "/openapi.json"]
+    PUBLIC_PATHS = ["/health", "/health/ready", "/docs", "/redoc", "/openapi.json", "/metrics"]
 
     async def dispatch(
         self, request: Request, call_next: Callable

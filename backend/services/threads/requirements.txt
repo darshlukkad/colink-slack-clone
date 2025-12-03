@@ -1,3 +1,6 @@
 # Threads Service specific dependencies
 python-jose[cryptography]>=3.3.0
 aiokafka>=0.10.0
+
+# monitoring
+prometheus-fastapi-instrumentator

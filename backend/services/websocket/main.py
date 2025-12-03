@@ -12,6 +12,7 @@ from jose import jwt
 
 from config import settings
 from services.kafka_consumer import kafka_consumer
+from prometheus_fastapi_instrumentator import Instrumentator
 
 # Configure logging
 logging.basicConfig(
@@ -63,6 +64,10 @@ async def lifespan(app: FastAPI):
 
 # Create FastAPI app
 app = FastAPI(title="WebSocket Service", lifespan=lifespan)
+
+# Expose Prometheus metrics at /metrics
+Instrumentator().instrument(app).expose(app)
+logger.info("Prometheus metrics exposed at /metrics")
 
 # Add CORS middleware
 app.add_middleware(

@@ -10,6 +10,8 @@ from .middleware.auth_jwt import AuthMiddleware
 from .routers import files_router, health_router
 from .services.kafka_producer import kafka_producer
 from .services.minio_service import minio_service
+from prometheus_fastapi_instrumentator import Instrumentator
+
 
 # Configure logging
 logging.basicConfig(
@@ -29,6 +31,10 @@ app = FastAPI(
         "usePkceWithAuthorizationCodeGrant": True,
     },
 )
+
+# Expose Prometheus metrics at /metrics
+Instrumentator().instrument(app).expose(app)
+logger.info("Prometheus metrics exposed at /metrics")
 
 
 def custom_openapi():
