@@ -192,10 +192,10 @@ export function ThreadPanel({ message, onClose }: ThreadPanelProps) {
     <div className="fixed right-0 top-0 h-full w-96 bg-white border-l border-gray-200 shadow-lg flex flex-col z-50">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-        <h2 className="text-lg font-semibold">Thread</h2>
+        <h2 className="text-lg font-semibold text-black">Thread</h2>
         <button
           onClick={onClose}
-          className="p-1 hover:bg-gray-100 rounded transition-colors"
+          className="p-1 hover:bg-gray-100 rounded transition-colors text-black"
         >
           <X className="h-5 w-5" />
         </button>

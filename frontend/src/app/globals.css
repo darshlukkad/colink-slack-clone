@@ -7,11 +7,110 @@
   --foreground: #171717;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Dark mode using class strategy */
+html.dark {
+  --background: #1a1a2e;
+  --foreground: #ededed;
+}
+
+html.dark body {
+  background-color: #1a1a2e !important;
+  color: #ededed !important;
+}
+
+html.dark .bg-white {
+  background-color: #16213e !important;
+}
+
+html.dark .bg-gray-50 {
+  background-color: #1a1a2e !important;
+}
+
+html.dark .bg-gray-100 {
+  background-color: #1f2937 !important;
+}
+
+html.dark .hover\:bg-gray-100:hover {
+  background-color: #374151 !important;
+}
+
+html.dark .hover\:bg-gray-50:hover {
+  background-color: #374151 !important;
+}
+
+html.dark .group:hover .group-hover\:opacity-100 {
+  color: #9ca3af !important;
+}
+
+html.dark .text-gray-900 {
+  color: #f3f4f6 !important;
+}
+
+html.dark .text-gray-800 {
+  color: #e5e7eb !important;
+}
+
+html.dark .text-gray-700 {
+  color: #d1d5db !important;
+}
+
+html.dark .text-gray-600 {
+  color: #9ca3af !important;
+}
+
+html.dark .text-gray-500 {
+  color: #9ca3af !important;
+}
+
+html.dark .border-gray-200 {
+  border-color: #374151 !important;
+}
+
+html.dark .border-gray-300 {
+  border-color: #4b5563 !important;
+}
+
+/* Dark mode for message hover actions box */
+html.dark .bg-white.border.border-gray-300.rounded.shadow-sm {
+  background-color: #1f2937 !important;
+  border-color: #4b5563 !important;
+}
+
+/* Dark mode for inputs */
+html.dark input,
+html.dark textarea {
+  background-color: #1f2937 !important;
+  color: #f3f4f6 !important;
+  border-color: #4b5563 !important;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #9ca3af !important;
+}
+
+/* Dark mode for emoji picker */
+html.dark .shadow-lg {
+  background-color: #1f2937 !important;
+}
+
+/* Dark mode scrollbar */
+html.dark ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+html.dark ::-webkit-scrollbar-track {
+  background: #1a1a2e;
+}
+
+html.dark ::-webkit-scrollbar-thumb {
+  background: #4b5563;
+  border-radius: 4px;
+}
+
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
 }
 
 body {

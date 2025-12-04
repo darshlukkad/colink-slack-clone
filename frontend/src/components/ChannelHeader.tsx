@@ -5,8 +5,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { channelApi, authApi } from '@/lib/api';
 import { Channel, User } from '@/types';
-import { Hash, Lock, Users, Star, Info, MoreVertical, Trash2, Search } from 'lucide-react';
+import { Hash, Lock, Users, Star, Info, MoreVertical, Trash2, Search, Sun, Moon } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
+import { useThemeStore } from '@/store/themeStore';
 import { OnlineStatus } from './OnlineStatus';
 
 interface ChannelHeaderProps {
@@ -25,6 +26,7 @@ interface ChannelMember {
 
 export function ChannelHeader({ channel, onSearch }: ChannelHeaderProps) {
   const { user } = useAuthStore();
+  const { theme, toggleTheme } = useThemeStore();
   const router = useRouter();
   const queryClient = useQueryClient();
   const isPrivate = channel.channel_type === 'PRIVATE';
@@ -169,6 +171,22 @@ export function ChannelHeader({ channel, onSearch }: ChannelHeaderProps) {
       </div>
 
       <div className="flex items-center space-x-2">
+        {/* Theme Toggle Button */}
+        <button
+          onClick={() => {
+            console.log('Theme toggle clicked, current theme:', theme);
+            toggleTheme();
+          }}
+          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+          title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+        >
+          {theme === 'light' ? (
+            <Moon className="h-5 w-5 text-gray-600 dark:text-gray-300" />
+          ) : (
+            <Sun className="h-5 w-5 text-yellow-500" />
+          )}
+        </button>
+
         {/* Search Button */}
         <div className="relative">
           <button

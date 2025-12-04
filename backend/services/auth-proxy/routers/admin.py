@@ -89,6 +89,7 @@ class UserListItem(BaseModel):
     username: str
     email: str
     display_name: str | None
+    avatar_url: str | None
     role: str
     status: str
     created_at: datetime
@@ -102,9 +103,110 @@ class UsersListResponse(BaseModel):
     total: int
 
 
+class CreateUserRequest(BaseModel):
+    """Request model for creating a new user."""
+
+    email: str
+    username: str
+    display_name: str
+    phone_number: str | None = None
+
+
+class CreateUserResponse(BaseModel):
+    """Response model for created user."""
+
+    id: str
+    keycloak_id: str
+    username: str
+    email: str
+    display_name: str
+    message: str
+
+
 # ============================================================================
 # Endpoints
 # ============================================================================
+
+
+@router.post("/users", response_model=CreateUserResponse, status_code=status.HTTP_201_CREATED)
+async def create_user(
+    user_data: CreateUserRequest,
+    db: AsyncSession = Depends(get_db),
+    token: str = Depends(security),
+):
+    """Create a new user in Keycloak and database.
+
+    This endpoint requires admin privileges.
+    """
+    try:
+        # Verify admin user
+        admin_user = await verify_admin_user(token.credentials, db)
+
+        logger.info(f"Admin {admin_user.username} creating new user: {user_data.username}")
+
+        # Check if username already exists in DB
+        stmt = select(User).where(User.username == user_data.username)
+        result = await db.execute(stmt)
+        existing_user = result.scalar_one_or_none()
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Username already exists",
+            )
+
+        # Check if email already exists in DB
+        stmt = select(User).where(User.email == user_data.email)
+        result = await db.execute(stmt)
+        existing_user = result.scalar_one_or_none()
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Email already exists",
+            )
+
+        # Create user in Keycloak
+        keycloak = KeycloakService()
+        keycloak_id = await keycloak.create_user(
+            username=user_data.username,
+            email=user_data.email,
+            first_name=user_data.display_name,
+            password="changeme123",  # Default password, user should change
+        )
+
+        # Create user in database
+        new_user = User(
+            keycloak_id=keycloak_id,
+            username=user_data.username,
+            email=user_data.email,
+            display_name=user_data.display_name,
+            phone_number=user_data.phone_number,
+            role=UserRole.MEMBER,
+            status=UserStatus.ACTIVE,
+        )
+
+        db.add(new_user)
+        await db.commit()
+        await db.refresh(new_user)
+
+        logger.info(f"Successfully created user {new_user.username} with ID {new_user.id}")
+
+        return CreateUserResponse(
+            id=str(new_user.id),
+            keycloak_id=keycloak_id,
+            username=new_user.username,
+            email=new_user.email,
+            display_name=new_user.display_name or "",
+            message=f"User created successfully. Default password: changeme123",
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to create user: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create user: {str(e)}",
+        )
 
 
 @router.get("/users", response_model=UsersListResponse)
@@ -135,6 +237,7 @@ async def list_all_users(
                     username=user.username,
                     email=user.email,
                     display_name=user.display_name,
+                    avatar_url=user.avatar_url,
                     role=user.role.value,
                     status=user.status.value,
                     created_at=user.created_at,

@@ -259,6 +259,145 @@ class KeycloakService:
         """Clear cached JWKS (useful for key rotation)."""
         self._jwks_cache = {}
 
+    async def _get_admin_token(self) -> str:
+        """Get admin access token using client credentials.
+
+        Returns:
+            Admin access token
+
+        Raises:
+            HTTPException: If unable to get admin token
+        """
+        try:
+            async with httpx.AsyncClient() as client:
+                # Get admin token using admin-cli or service account
+                token_data = {
+                    "grant_type": "client_credentials",
+                    "client_id": "admin-cli",
+                    "client_secret": settings.keycloak_admin_secret if hasattr(settings, 'keycloak_admin_secret') else "",
+                }
+
+                # Try with master realm admin credentials
+                admin_token_url = f"{settings.keycloak_url}/realms/master/protocol/openid-connect/token"
+
+                # Use password grant with admin user
+                token_data = {
+                    "grant_type": "password",
+                    "client_id": "admin-cli",
+                    "username": "admin",
+                    "password": "admin",  # Default Keycloak admin password
+                }
+
+                response = await client.post(
+                    admin_token_url,
+                    data=token_data,
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                    timeout=10.0,
+                )
+
+                if response.status_code != 200:
+                    logger.error(f"Failed to get admin token: {response.text}")
+                    raise HTTPException(
+                        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                        detail="Unable to authenticate with Keycloak admin",
+                    )
+
+                return response.json()["access_token"]
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Failed to get admin token: {e}", exc_info=True)
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Keycloak admin authentication failed",
+            )
+
+    async def create_user(
+        self,
+        username: str,
+        email: str,
+        first_name: str,
+        last_name: str = "",
+        password: str = "changeme123",
+    ) -> str:
+        """Create a new user in Keycloak.
+
+        Args:
+            username: Username for the new user
+            email: Email address
+            first_name: First name (display name)
+            last_name: Last name (optional)
+            password: Initial password (default: changeme123)
+
+        Returns:
+            The Keycloak user ID of the created user
+
+        Raises:
+            HTTPException: If user creation fails
+        """
+        try:
+            admin_token = await self._get_admin_token()
+
+            async with httpx.AsyncClient() as client:
+                # Create user in Keycloak
+                users_url = f"{settings.keycloak_url}/admin/realms/{settings.keycloak_realm}/users"
+
+                user_data = {
+                    "username": username,
+                    "email": email,
+                    "firstName": first_name,
+                    "lastName": last_name,
+                    "enabled": True,
+                    "emailVerified": True,
+                    "credentials": [
+                        {
+                            "type": "password",
+                            "value": password,
+                            "temporary": False,
+                        }
+                    ],
+                }
+
+                response = await client.post(
+                    users_url,
+                    json=user_data,
+                    headers={
+                        "Authorization": f"Bearer {admin_token}",
+                        "Content-Type": "application/json",
+                    },
+                    timeout=10.0,
+                )
+
+                if response.status_code == 409:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="User with this username or email already exists",
+                    )
+
+                if response.status_code != 201:
+                    logger.error(f"Failed to create user in Keycloak: {response.text}")
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail=f"Failed to create user in Keycloak: {response.text}",
+                    )
+
+                # Get the created user's ID from the Location header
+                location = response.headers.get("Location", "")
+                keycloak_user_id = location.split("/")[-1]
+
+                logger.info(f"Created user {username} in Keycloak with ID {keycloak_user_id}")
+                return keycloak_user_id
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Failed to create user in Keycloak: {e}", exc_info=True)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to create user",
+            )
+
     async def delete_user(self, keycloak_id: str) -> None:
         """Delete a user from Keycloak.
 
@@ -269,16 +408,23 @@ class KeycloakService:
             HTTPException: If user deletion fails
         """
         try:
-            # Note: This requires admin credentials or a service account
-            # For now, we'll log the attempt but may not have permissions
-            logger.info(f"Attempting to delete user {keycloak_id} from Keycloak")
+            admin_token = await self._get_admin_token()
 
-            # In a production environment, you would need to:
-            # 1. Get an admin token or use service account
-            # 2. Make DELETE request to /admin/realms/{realm}/users/{id}
+            async with httpx.AsyncClient() as client:
+                delete_url = f"{settings.keycloak_url}/admin/realms/{settings.keycloak_realm}/users/{keycloak_id}"
 
-            # For now, we'll just mark it as attempted
-            # The soft delete in our database is the primary deletion mechanism
+                response = await client.delete(
+                    delete_url,
+                    headers={"Authorization": f"Bearer {admin_token}"},
+                    timeout=10.0,
+                )
+
+                if response.status_code == 204:
+                    logger.info(f"Successfully deleted user {keycloak_id} from Keycloak")
+                elif response.status_code == 404:
+                    logger.warning(f"User {keycloak_id} not found in Keycloak")
+                else:
+                    logger.warning(f"Failed to delete user from Keycloak: {response.text}")
 
         except Exception as e:
             logger.warning(f"Failed to delete user from Keycloak: {e}")
