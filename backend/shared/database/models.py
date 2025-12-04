@@ -358,8 +358,6 @@ class Thread(Base, TimestampMixin):
         "Message", foreign_keys=[root_message_id], overlaps="thread"
     )
 
-    __table_args__ = (Index("ix_threads_last_reply_at", "last_reply_at"),)
-
     def __repr__(self) -> str:
         return f"<Thread(id={self.id}, root_message_id={self.root_message_id}, replies={self.reply_count})>"
 
