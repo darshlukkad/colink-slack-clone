@@ -447,7 +447,7 @@ class File(Base, TimestampMixin):
 
     __table_args__ = (
         Index("ix_files_uploaded_by_id", "uploaded_by_id"),
-        Index("ix_files_created_at", "created_at"),
+        # Note: created_at index is automatically created by TimestampMixin
     )
 
     def __repr__(self) -> str:
@@ -490,9 +490,8 @@ class AuditLog(Base, TimestampMixin):
 
     __table_args__ = (
         Index("ix_audit_logs_actor_id", "actor_id"),
-        Index("ix_audit_logs_action", "action"),
-        Index("ix_audit_logs_resource_type", "resource_type"),
-        Index("ix_audit_logs_created_at", "created_at"),
+        # Note: action and resource_type already have index=True via mapped_column
+        # Note: created_at index is automatically created by TimestampMixin
     )
 
     def __repr__(self) -> str:
