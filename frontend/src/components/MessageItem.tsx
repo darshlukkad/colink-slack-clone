@@ -8,6 +8,7 @@ import { Smile, MessageSquare, MoreVertical, File, Download, FileText, FileImage
 import { messageApi, filesApi } from '@/lib/api';
 import { AuthService } from '@/lib/auth';
 import { useAuthStore } from '@/store/authStore';
+import { config } from '@/lib/config';
 import { UserProfilePopup } from './UserProfilePopup';
 
 interface MessageItemProps {
@@ -157,7 +158,7 @@ export function MessageItem({ message, showAvatar, onReplyClick, highlightText }
       }
 
       // Use filesApi to get the file with authentication
-      const downloadUrl = `http://localhost:8007/api/v1/files/${fileId}/download`;
+      const downloadUrl = `${config.api.files}/api/v1/files/${fileId}/download`;
       console.log('[Download] Fetching from:', downloadUrl);
 
       const response = await fetch(downloadUrl, {
