@@ -44,6 +44,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const tokens = AuthService.getTokens();
       const user = AuthService.getUser();
 
+      console.log('initializeAuth - tokens:', tokens ? 'present' : 'missing', 'user:', user?.username || 'missing');
+
       if (!tokens || !user) {
         set({ isLoading: false });
         return;
@@ -51,13 +53,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       // Check if token is expired
       if (AuthService.isTokenExpired(tokens.access_token)) {
+        console.log('Token expired, attempting refresh...');
         // Try to refresh
         try {
           await get().refreshTokens();
         } catch (error) {
+          console.error('Token refresh failed:', error);
           get().clearAuth();
         }
       } else {
+        console.log('Token valid, setting authenticated state');
         set({ user, tokens, isAuthenticated: true, isLoading: false });
       }
     } catch (error) {

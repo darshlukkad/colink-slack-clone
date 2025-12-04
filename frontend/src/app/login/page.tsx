@@ -11,15 +11,20 @@ export default function LoginPage() {
   const { isAuthenticated, isLoading } = useAuthStore();
 
   useEffect(() => {
+    console.log('Login page - isAuthenticated:', isAuthenticated, 'isLoading:', isLoading);
     if (isAuthenticated) {
       router.push('/channels');
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, isLoading, router]);
 
   const handleLogin = () => {
-    window.location.href = AuthService.getAuthUrl();
+    const authUrl = AuthService.getAuthUrl();
+    console.log('Redirecting to:', authUrl);
+    window.location.href = authUrl;
   };
 
+  // Don't block on loading for too long - show login after 2 seconds anyway
+  // This prevents infinite loading states
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">

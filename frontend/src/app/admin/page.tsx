@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { authApi } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
-import { Trash2, Shield, Users as UsersIcon, LogOut } from 'lucide-react';
+import { Trash2, Shield, Users as UsersIcon, LogOut, BarChart3 } from 'lucide-react';
+import Link from 'next/link';
 
 interface AdminUser {
   id: string;
@@ -107,13 +108,22 @@ export default function AdminDashboard() {
                 <p className="text-sm text-gray-600">User Management</p>
               </div>
             </div>
-            <button
-              onClick={handleLogout}
-              className="flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <LogOut className="h-5 w-5" />
-              <span>Logout</span>
-            </button>
+            <div className="flex items-center space-x-2">
+              <Link
+                href="/analytics"
+                className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white hover:bg-purple-700 rounded-lg transition-colors"
+              >
+                <BarChart3 className="h-5 w-5" />
+                <span>Analytics</span>
+              </Link>
+              <button
+                onClick={handleLogout}
+                className="flex items-center space-x-2 px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <LogOut className="h-5 w-5" />
+                <span>Logout</span>
+              </button>
+            </div>
           </div>
         </div>
       </header>

@@ -12,7 +12,7 @@ from shared.database import close_db, init_db
 
 from .config import settings
 from .middleware import AuthMiddleware
-from .routers import health, messages, reactions
+from .routers import analytics, health, messages, reactions
 from .services.kafka_producer import kafka_producer
 from prometheus_fastapi_instrumentator import Instrumentator
 
@@ -123,6 +123,7 @@ app.add_middleware(AuthMiddleware)
 app.include_router(health.router, tags=["Health"])
 app.include_router(messages.router, tags=["Messages"])
 app.include_router(reactions.router, tags=["Reactions"])
+app.include_router(analytics.router, tags=["Analytics"])  # BI Analytics endpoints
 
 
 @app.get("/")
