@@ -542,8 +542,7 @@ class ModerationActionModel(Base, TimestampMixin):
     __table_args__ = (
         Index("ix_moderation_actions_target_user_id", "target_user_id"),
         Index("ix_moderation_actions_moderator_id", "moderator_id"),
-        Index("ix_moderation_actions_action_type", "action_type"),
-        Index("ix_moderation_actions_is_active", "is_active"),
+        # Note: action_type and is_active already have index=True via mapped_column
     )
 
     def __repr__(self) -> str:
@@ -595,7 +594,7 @@ class Notification(Base, TimestampMixin):
     __table_args__ = (
         Index("ix_notifications_user_id_is_read", "user_id", "is_read"),
         Index("ix_notifications_user_id_created_at", "user_id", "created_at"),
-        Index("ix_notifications_type", "type"),
+        # Note: type already has index=True via mapped_column
     )
 
     def __repr__(self) -> str:
