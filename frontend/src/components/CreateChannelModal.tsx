@@ -33,10 +33,11 @@ export function CreateChannelModal({ isOpen, onClose, onSuccess }: CreateChannel
     enabled: isOpen && step === 'members',
   });
 
-  // Filter users based on search and exclude current user
+  // Filter users based on search and exclude current user and admin users
   const filteredUsers = allUsers.filter(
     (u) =>
       u.id !== currentUser?.id && // Exclude current user
+      u.role?.toLowerCase() !== 'admin' && // Exclude admin users
       (u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
         u.display_name?.toLowerCase().includes(searchQuery.toLowerCase()))
   );

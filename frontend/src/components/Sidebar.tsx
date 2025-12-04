@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { channelApi, authApi } from '@/lib/api';
 import { Channel, User } from '@/types';
-import { Hash, Lock, ChevronDown, Plus, MessageSquare, LogOut, BarChart3 } from 'lucide-react';
+import { Hash, Lock, ChevronDown, Plus, MessageSquare, LogOut, BarChart3, Shield } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { CreateChannelModal } from './CreateChannelModal';
@@ -343,17 +343,28 @@ export function Sidebar() {
 
       {/* Footer Actions */}
       <div className="border-t border-purple-800 p-2">
-        {/* BI Analytics Dashboard Link - Only visible to admins */}
+        {/* Admin Dashboard and Analytics Links - Only visible to admins */}
         {user?.role?.toUpperCase() === 'ADMIN' && (
-          <Link
-            href="/analytics"
-            className={`w-full flex items-center space-x-2 px-2 py-2 hover:bg-purple-800 rounded text-sm mb-1 ${
-              pathname === '/analytics' ? 'bg-purple-700' : ''
-            }`}
-          >
-            <BarChart3 className="h-4 w-4" />
-            <span>Analytics</span>
-          </Link>
+          <>
+            <Link
+              href="/admin"
+              className={`w-full flex items-center space-x-2 px-2 py-2 hover:bg-purple-800 rounded text-sm mb-1 ${
+                pathname === '/admin' ? 'bg-purple-700' : ''
+              }`}
+            >
+              <Shield className="h-4 w-4" />
+              <span>Admin Dashboard</span>
+            </Link>
+            <Link
+              href="/analytics"
+              className={`w-full flex items-center space-x-2 px-2 py-2 hover:bg-purple-800 rounded text-sm mb-1 ${
+                pathname === '/analytics' ? 'bg-purple-700' : ''
+              }`}
+            >
+              <BarChart3 className="h-4 w-4" />
+              <span>Analytics</span>
+            </Link>
+          </>
         )}
         <button
           onClick={handleLogout}

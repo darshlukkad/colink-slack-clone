@@ -41,8 +41,14 @@ function AuthCallbackContent() {
         // Save to store and localStorage
         setAuth(user, tokens);
 
-        // Always redirect to channels - admin can access analytics from sidebar
-        router.push('/channels');
+        // Redirect based on user role (case-insensitive check)
+        if (user.role?.toLowerCase() === 'admin') {
+          console.log('Admin user detected, redirecting to /admin');
+          router.push('/admin');
+        } else {
+          console.log('Regular user, redirecting to /channels');
+          router.push('/channels');
+        }
       } catch (err) {
         console.error('Auth callback error:', err);
         setError('Failed to complete authentication');
