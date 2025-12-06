@@ -7,11 +7,14 @@ Creates the 'colink' realm and test users for integration testing
 import requests
 import json
 import time
+import os
 from typing import Optional
 
-KEYCLOAK_URL = "http://localhost:8080"
-ADMIN_USER = "admin"
-ADMIN_PASS = "admin"
+# Get configuration from environment variables with sensible defaults
+PUBLIC_IP = os.environ.get("PUBLIC_IP", "localhost")
+KEYCLOAK_URL = os.environ.get("KEYCLOAK_URL", f"http://{PUBLIC_IP}:8080")
+ADMIN_USER = os.environ.get("KEYCLOAK_ADMIN", "admin")
+ADMIN_PASS = os.environ.get("KEYCLOAK_ADMIN_PASSWORD", "admin")
 
 class KeycloakSetup:
     def __init__(self):
@@ -100,11 +103,18 @@ class KeycloakSetup:
             "authorizationServicesEnabled": False,
             "redirectUris": [
                 "http://localhost:3000/*",
-                "http://localhost:8000/*"
+                "http://localhost:8000/*",
+                f"http://{PUBLIC_IP}:3000/*",
+                f"http://{PUBLIC_IP}:8000/*",
+                "http://*:3000/*",
+                "http://*:8000/*"
             ],
             "webOrigins": [
                 "http://localhost:3000",
-                "http://localhost:8000"
+                "http://localhost:8000",
+                f"http://{PUBLIC_IP}:3000",
+                f"http://{PUBLIC_IP}:8000",
+                "*"
             ],
             "protocol": "openid-connect",
             "attributes": {
