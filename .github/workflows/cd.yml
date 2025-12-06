@@ -64,19 +64,39 @@ jobs:
           ssh -i ~/.ssh/colink.pem ${{ env.EC2_USER }}@${{ env.EC2_HOST }} << 'EOF'
             cd ${{ env.DEPLOY_PATH }}
             
-            # Stop existing containers
+            # Stop existing containers (but keep volumes)
             docker compose down --remove-orphans || docker-compose down --remove-orphans || echo "No containers running"
             
             # Pull latest base images
             docker compose pull || docker-compose pull || echo "Pull completed"
             
-            # Build and start containers
+            # Build and start infrastructure services first
             export PUBLIC_IP=${{ env.EC2_HOST }}
+            docker compose up -d --build postgres redis redpanda minio opensearch prometheus || \
+              docker-compose up -d --build postgres redis redpanda minio opensearch prometheus
+            
+            # Wait for postgres to be ready
+            echo "Waiting for PostgreSQL to be ready..."
+            for i in {1..30}; do
+              if docker exec colink-postgres pg_isready -U colink > /dev/null 2>&1; then
+                echo "PostgreSQL is ready"
+                break
+              fi
+              echo "Waiting for PostgreSQL... ($i/30)"
+              sleep 2
+            done
+            
+            # Ensure keycloak database exists
+            docker exec colink-postgres psql -U colink -d colink -tc "SELECT 1 FROM pg_database WHERE datname = 'keycloak'" | grep -q 1 || \
+              docker exec colink-postgres psql -U colink -d colink -c "CREATE DATABASE keycloak;"
+            echo "Keycloak database ensured"
+            
+            # Start all remaining services
             docker compose up -d --build || docker-compose up -d --build
             
-            # Wait for services to start
+            # Wait for services to be healthy
             echo "Waiting for services to start..."
-            sleep 30
+            sleep 45
             
             # Show container status
             docker compose ps || docker-compose ps
@@ -94,14 +114,17 @@ jobs:
             # Check frontend
             curl -sf http://localhost:3000 > /dev/null && echo "✓ Frontend is healthy" || echo "✗ Frontend is not responding"
             
-            # Check auth-proxy
-            curl -sf http://localhost:8001/health > /dev/null && echo "✓ Auth-proxy is healthy" || echo "✗ Auth-proxy is not responding"
+            # Check auth-proxy (follow redirects)
+            curl -sfL http://localhost:8001/health/ > /dev/null && echo "✓ Auth-proxy is healthy" || echo "✗ Auth-proxy is not responding"
             
             # Check message service
-            curl -sf http://localhost:8002/health > /dev/null && echo "✓ Message service is healthy" || echo "✗ Message service is not responding"
+            curl -sfL http://localhost:8002/health/ > /dev/null && echo "✓ Message service is healthy" || echo "✗ Message service is not responding"
             
             # Check channel service
-            curl -sf http://localhost:8003/health > /dev/null && echo "✓ Channel service is healthy" || echo "✗ Channel service is not responding"
+            curl -sfL http://localhost:8003/health/ > /dev/null && echo "✓ Channel service is healthy" || echo "✗ Channel service is not responding"
+            
+            # Check keycloak
+            curl -sf http://localhost:8080 > /dev/null && echo "✓ Keycloak is healthy" || echo "✗ Keycloak is not responding"
           EOF
 
       - name: Cleanup SSH key
