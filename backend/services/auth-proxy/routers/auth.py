@@ -186,6 +186,7 @@ async def get_current_user(
     """Get current user information from token.
 
     This endpoint validates the JWT token and returns user info.
+    If user doesn't exist in database, creates them automatically.
     """
     try:
         # Extract token from Authorization header
@@ -201,10 +202,19 @@ async def get_current_user(
         user = result.scalar_one_or_none()
 
         if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found",
+            # Auto-create user on first login
+            logger.info(f"Creating new user from Keycloak: {user_info.get('preferred_username')}")
+            user = User(
+                keycloak_id=user_info["sub"],
+                email=user_info.get("email", ""),
+                username=user_info.get("preferred_username", user_info["sub"]),
+                display_name=user_info.get("name", user_info.get("preferred_username", "")),
+                role=user_info.get("role", "user"),
+                status="online",
             )
+            db.add(user)
+            await db.commit()
+            await db.refresh(user)
 
         # Update last seen
         user.last_seen_at = datetime.now(timezone.utc).replace(tzinfo=None)
